@@ -1,0 +1,20 @@
+<package>
+  <name>mcuserial_python</name>
+  <version>0.0.0</version>
+  <description>
+      Todo
+  </description>
+  <author>Rodrigue Kottin</author>
+  <maintainer email="kottinrodrigue@gmail.com">Rodrigue Kottin</maintainer>
+  <license>BSD</license>
+
+  <url>
+  
+  </url>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <run_depend>rospy</run_depend>
+  <run_depend>mcuserial_msgs</run_depend>
+  <run_depend>python3-serial</run_depend>
+</package>

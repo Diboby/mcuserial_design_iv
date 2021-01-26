@@ -1,0 +1,8 @@
+prefix=/home/rokot1/design4_workspace/install
+
+Name: mcuserial_interface
+Description: Description of mcuserial_interface
+Version: 0.0.0
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: 

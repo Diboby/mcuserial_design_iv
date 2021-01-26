@@ -1,0 +1,8 @@
+prefix=/home/rokot1/design4_workspace/install
+
+Name: mcuserial_msgs
+Description: Description of mcuserial_msgs
+Version: 0.0.0
+Cflags: -I${prefix}/include
+Libs: -L${prefix}/lib 
+Requires: message_runtime
