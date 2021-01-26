@@ -1,2 +1,0 @@
-mcu_interface/mcu_interface:mcu_interface/mcuserial_interface:mcu_interface/mcuserial_lib/mcuserial_lib:mcu_interface/mcuserial_lib/mcuserial_msgs:mcu_interface/mcuserial_lib/mcuserial_pyhon
--DCATKIN_DEVEL_PREFIX=/home/rokot1/design4_workspace/devel -DCMAKE_INSTALL_PREFIX=/home/rokot1/design4_workspace/install -G Unix Makefiles

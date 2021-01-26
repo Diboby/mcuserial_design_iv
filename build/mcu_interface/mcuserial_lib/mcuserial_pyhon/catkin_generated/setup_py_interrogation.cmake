@@ -1,7 +1,0 @@
-set(mcuserial_python_SETUP_PY_SETUP_MODULE "distutils.core")
-set(mcuserial_python_SETUP_PY_VERSION "0.0.0")
-set(mcuserial_python_SETUP_PY_SCRIPTS "")
-set(mcuserial_python_SETUP_PY_PACKAGES "mcuserial_python")
-set(mcuserial_python_SETUP_PY_PACKAGE_DIRS "src/mcuserial_python")
-set(mcuserial_python_SETUP_PY_MODULES "")
-set(mcuserial_python_SETUP_PY_MODULE_DIRS "")
