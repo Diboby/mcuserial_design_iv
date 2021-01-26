@@ -1,8 +1,0 @@
-prefix=/home/rokot1/design4_workspace/devel
-
-Name: rosserial_mbed
-Description: Description of rosserial_mbed
-Version: 0.9.1
-Cflags: -I/home/rokot1/design4_workspace/devel/include
-Libs: -L${prefix}/lib 
-Requires: message_runtime

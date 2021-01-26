@@ -1,8 +1,0 @@
-prefix=/home/rokot1/design4_workspace/devel
-
-Name: mcuserial_python
-Description: Description of mcuserial_python
-Version: 0.0.0
-Cflags: 
-Libs: -L${prefix}/lib 
-Requires: 
