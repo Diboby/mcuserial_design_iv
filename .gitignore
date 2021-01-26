@@ -1,2 +1,4 @@
 
 src/rosserial/*.*
+install/*.*
+devel/*.*
