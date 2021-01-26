@@ -2,3 +2,4 @@ src/rosserial/
 install/
 devel/
 build/
+.vscode/
