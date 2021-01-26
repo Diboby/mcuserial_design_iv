@@ -74,7 +74,6 @@ class Publisher:
         m.deserialize(data)
         self.publisher.publish(m)
 
-
 class Subscriber:
     """
         Subscriber forwards messages from ROS to the serial device.
@@ -133,7 +132,7 @@ class SerialClient(object):
         self.pub_diagnostics = rospy.Publisher('/diagnostics', diagnostic_msgs.msg.DiagnosticArray, queue_size=10)
 
         if port is None:
-            # Pas de port specifie
+            # Pas de port specifiee
             pass
         elif hasattr(port, 'read'):
             # Quand le port est deja ouvert

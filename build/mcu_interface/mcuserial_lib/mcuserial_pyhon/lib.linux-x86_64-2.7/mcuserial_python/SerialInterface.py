@@ -74,7 +74,6 @@ class Publisher:
         m.deserialize(data)
         self.publisher.publish(m)
 
-
 class Subscriber:
     """
         Subscriber forwards messages from ROS to the serial device.
@@ -133,7 +132,7 @@ class SerialClient(object):
         self.pub_diagnostics = rospy.Publisher('/diagnostics', diagnostic_msgs.msg.DiagnosticArray, queue_size=10)
 
         if port is None:
-            # Pas de port specifie
+            # Pas de port specifiee
             pass
         elif hasattr(port, 'read'):
             # Quand le port est deja ouvert
@@ -178,7 +177,7 @@ class SerialClient(object):
             self.port.flushInput()
 
         # request topic sync
-        self.write_queue.put(self.header + self.protocol_ver + b"\x00\x00\xff\x00\x00\xff")
+        self.write_queue.put(self.header + b"\x00\x00\xff\x00\x00\xff")
 
     def txStopRequest(self):
         """ Send stop tx request to client before the node exits. """
@@ -221,17 +220,7 @@ class SerialClient(object):
         data = ''
         read_step = None
         while self.write_thread.is_alive() and not rospy.is_shutdown():
-            #if (rospy.Time.now() - self.lastsync).to_sec() > (self.timeout * 3):
-            #    if self.synced:
-            #        rospy.logerr("Lost sync with device, restarting...")
-            #    else:
-            #        rospy.logerr("Unable to sync with device; possible link problem or link software version mismatch such as hydro mcuserial_python with groovy Arduino")
-            #    self.lastsync_lost = rospy.Time.now()
-            #    self.sendDiagnostics(diagnostic_msgs.msg.DiagnosticStatus.ERROR, ERROR_NO_SYNC)
-            #    self.requestTopics()
-            #    self.lastsync = rospy.Time.now()
             
-
             # This try-block is here because we make multiple calls to read(). Any one of them can throw
             # an IOError if there's a serial problem or timeout. In that scenario, a single handler at the
             # bottom attempts to reconfigure the topics.
@@ -241,7 +230,7 @@ class SerialClient(object):
                         time.sleep(0.001)
                         continue
 
-                #On commence la lecture
+                # On commence la lecture
                 # Read header
                 
                 flag = b'\0x00'
@@ -251,9 +240,11 @@ class SerialClient(object):
                     continue
 
                 # Read message length, checksum (3 bytes)
+                # For details about unpack, follow https://docs.python.org/3/library/struct.html
+
                 read_step = 'message length'
                 msg_len_bytes = self.tryRead(1)
-                msg_length, _ = struct.unpack("<hB", msg_len_bytes)
+                msg_length, _ = struct.unpack(">hB", msg_len_bytes)
 
                 # Validate message length checksum.
                 if sum(array.array("B", msg_len_bytes)) % 256 != 255:
@@ -263,22 +254,22 @@ class SerialClient(object):
                 # Read function (1 byte)
                 read_step = 'function'
                 function_byte = self.tryRead(1)
-                function, = struct.unpack("<H", function_byte)
+                function, = struct.unpack(">B", function_byte)
 
                 # Read register (1 byte)
                 read_step = 'register'
                 register_byte = self.tryRead(1)
-                register, = struct.unpack("<H", register_byte)
+                register, = struct.unpack(">B", register_byte)
 
                 # Read register (1 byte)
                 read_step = 'offset'
                 offset_byte = self.tryRead(1)
-                offset, = struct.unpack("<H", offset_byte)
+                offset, = struct.unpack(">B", offset_byte)
 
                 # Read register (1 byte)
                 read_step = 'count'
                 count_byte = self.tryRead(1)
-                count, = struct.unpack("<H", count_byte)
+                count, = struct.unpack(">B", count_byte)
 
                 # Read serialized message data.
                 read_step = 'data'
