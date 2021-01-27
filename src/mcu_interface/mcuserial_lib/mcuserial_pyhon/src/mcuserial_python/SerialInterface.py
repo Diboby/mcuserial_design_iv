@@ -291,7 +291,7 @@ class SerialClient(object):
                     self.synced = True
                     self.lastsync_success = rospy.Time.now()
                     try:
-                        topic_id = 100
+                        topic_id = 200
                         self.callbacks[topic_id](msg)
                     except KeyError:
                         rospy.logerr("Tried to publish before configured, topic id %d" % topic_id)
@@ -326,8 +326,11 @@ class SerialClient(object):
     def setupPublisher(self, data):
         """ Register a new publisher. """
         try:
-            msg = TopicInfo()
-            msg.deserialize(data)
+            if isinstance(data, TopicInfo) :
+                msg = data
+            else :
+                msg = TopicInfo()
+                msg.deserialize(data)
             pub = Publisher(msg)
             self.publishers[msg.topic_id] = pub
             self.callbacks[msg.topic_id] = pub.handlePacket
@@ -339,8 +342,11 @@ class SerialClient(object):
     def setupSubscriber(self, data):
         """ Register a new subscriber. """
         try:
-            msg = TopicInfo()
-            msg.deserialize(data)
+            if isinstance(data, TopicInfo) :
+                msg = data
+            else :
+                msg = TopicInfo()
+                msg.deserialize(data)
             if not msg.topic_name in list(self.subscribers.keys()):
                 sub = Subscriber(msg, self)
                 self.subscribers[msg.topic_name] = sub
