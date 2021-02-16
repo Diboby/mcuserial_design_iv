@@ -25,6 +25,8 @@ if __name__=="__main__":
     if len(sys.argv) == 3 :
         baud = int(sys.argv[2])
 
+
+    # ROS ---> MCU
     topicInfoSuscriber = TopicInfo()
     topicInfoSuscriber.topic_id = 100
     topicInfoSuscriber.topic_name = "rosToMcu"
@@ -32,6 +34,7 @@ if __name__=="__main__":
     topicInfoSuscriber.md5sum = dataTemplate._md5sum
     topicInfoSuscriber.buffer_size = 20
 
+    # MCU ---> ROS
     topicInforPublisher = TopicInfo()
     topicInforPublisher.topic_id = 200
     topicInforPublisher.topic_name = "mcuToRos"

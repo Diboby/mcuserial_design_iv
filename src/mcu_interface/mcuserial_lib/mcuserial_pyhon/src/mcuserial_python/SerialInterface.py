@@ -94,9 +94,11 @@ class Subscriber:
 
     def callback(self, msg):
         """ Forward message to serial device. """
-        data_buffer = io.BytesIO()
-        msg.serialize(data_buffer)
-        self.parent.send(self.id, data_buffer.getvalue())
+        #data_buffer = io.BytesIO()
+        #msg.serialize(data_buffer)
+        #self.parent.send(self.id, data_buffer.getvalue())
+
+        self.parent.send((self.message, msg))
 
     def unregister(self):
         rospy.loginfo("Removing subscriber: %s", self.topic)
@@ -209,6 +211,10 @@ class SerialClient(object):
 
     def run(self):
         """ Forward recieved messages to appropriate publisher. """
+
+        while not rospy.is_shutdown() :
+            self.processWriteQueue()
+            
 
         # Launch write thread.
         if self.write_thread is None:
@@ -445,7 +451,7 @@ class SerialClient(object):
             rospy.logerr("Message from ROS network dropped: message larger than buffer.\n%s" % msg)
             return -1
         else:
-            # frame : header (1b) + version (1b) + msg_len(2b) + msg_len_chk(1b) + topic_id(2b) + msg(nb) + msg_topic_id_chk(1b)
+            # frame : header (1b) + msg_len(1b) + function(1b) + register_number(1b) + offset(1b) + count(1b) data(xb) + crc16(2b)
             length_bytes = struct.pack('<h', length)
             length_checksum = 255 - (sum(array.array('B', length_bytes)) % 256)
             length_checksum_bytes = struct.pack('B', length_checksum)
@@ -454,7 +460,7 @@ class SerialClient(object):
             msg_checksum = 255 - (sum(array.array('B', topic_bytes + msg_bytes)) % 256)
             msg_checksum_bytes = struct.pack('B', msg_checksum)
 
-            self._write(self.header + self.protocol_ver + length_bytes + length_checksum_bytes + topic_bytes + msg_bytes + msg_checksum_bytes)
+            self._write(self.header + length_bytes + length_checksum_bytes + topic_bytes + msg_bytes + msg_checksum_bytes)
             return length
 
     def processWriteQueue(self):
@@ -469,7 +475,7 @@ class SerialClient(object):
                 while True:
                     try:
                         if isinstance(data, tuple):
-                            topic, msg = data
+                            msg_type, msg = data
                             self._send(topic, msg)
                         elif isinstance(data, bytes):
                             self._write(data)
@@ -496,7 +502,7 @@ class SerialClient(object):
 
         status.values.append(diagnostic_msgs.msg.KeyValue())
         status.values[0].key="last sync"
-        if self.lastsync.to_sec()>0:
+        if self.lastsync.to_sec() > 0:
             status.values[0].value=time.ctime(self.lastsync.to_sec())
         else:
             status.values[0].value="never"
