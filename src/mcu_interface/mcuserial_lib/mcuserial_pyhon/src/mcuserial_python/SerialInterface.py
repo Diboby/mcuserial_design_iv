@@ -17,6 +17,7 @@ import rospy
 from std_msgs.msg import Time
 from mcuserial_msgs.msg import TopicInfo, Log
 from mcuserial_msgs.srv import RequestParamRequest, RequestParamResponse
+from mcuros_msgs.McuToRosMsg import *
 
 import diagnostic_msgs.msg
 
@@ -98,21 +99,30 @@ class Subscriber:
         #msg.serialize(data_buffer)
         #self.parent.send(self.id, data_buffer.getvalue())
 
-        self.parent.send((self.message, msg))
+        rospy.loginfo("Suscriber callback is called (ROS ----> MCU)")
+
+        self.parent.send(self.id, msg)
 
     def unregister(self):
         rospy.loginfo("Removing subscriber: %s", self.topic)
         self.subscriber.unregister()
 
-
 class SerialClient(object):
     """
         ServiceServer responds to requests from the serial device.
     """
-    header = b'\x77'
+
+    _instance = None
+    def __new__(class_, *args, **kwargs):
+        if not isinstance(class_._instance, class_):
+            class_._instance = object.__new__(class_, *args, **kwargs)
+        return class_._instance
 
     def __init__(self, port='/dev/ttyUSB0', baud=9600, timeout=5.0):
         """ Initialize node, connect to bus, attempt to negotiate topics. """
+
+        self.header = b'\x77'
+        self.general_write_queue = Queue.Queue()
 
         self.read_lock = threading.RLock()
 
@@ -143,7 +153,8 @@ class SerialClient(object):
             # ouvrir un port
             while not rospy.is_shutdown():
                 try:
-                    self.port = Serial(port, baud, timeout=self.timeout, write_timeout=10)                        
+                    #write_timeout=10
+                    self.port = Serial(port, baud, timeout=self.timeout, write_timeout=10000)                        
                     break
                 except SerialException as e:
                     rospy.logerr("Error opening serial: %s", e)
@@ -179,15 +190,15 @@ class SerialClient(object):
             self.port.flushInput()
 
         # request topic sync
-        self.write_queue.put(self.header + b"\x00\x00\xff\x00\x00\xff")
+        #self.write_queue.put(self.header + b"\x00\x00\xff\x00\x00\xff")
 
     def txStopRequest(self):
         """ Send stop tx request to client before the node exits. """
         with self.read_lock:
             self.port.flushInput()
 
-        self.write_queue.put(self.header + b"\x00\x00\xff\x0b\x00\xf4")
-        rospy.loginfo("Sending tx stop request")
+        #self.write_queue.put(self.header + b"\x00\x00\xff\x0b\x00\xf4")
+        #rospy.loginfo("Sending tx stop request")
 
     def tryRead(self, length):
         try:
@@ -212,6 +223,7 @@ class SerialClient(object):
     def run(self):
         """ Forward recieved messages to appropriate publisher. """
 
+        # Perso
         while not rospy.is_shutdown() :
             self.processWriteQueue()
             
@@ -428,10 +440,15 @@ class SerialClient(object):
         elif msg.level == Log.FATAL:
             rospy.logfatal(msg.msg)
 
+    def send_internal_data(self, msg):
+        self.general_write_queue.put(msg)
+
     def send(self, topic, msg):
         """
         Queues data to be written to the serial port.
         """
+        rospy.loginfo("Putting message in Queue (ROS ----> MCU)")        
+        
         self.write_queue.put((topic, msg))
 
     def _write(self, data):
@@ -442,26 +459,37 @@ class SerialClient(object):
             self.port.write(data)
             self.last_write = rospy.Time.now()
 
-    def _send(self, topic, msg_bytes):
+    def _send(self, topic, msg):
         """
         Send a message on a particular topic to the device.
         """
-        length = len(msg_bytes)
+        length = msg.dataSize + 10
         if self.buffer_in > 0 and length > self.buffer_in:
             rospy.logerr("Message from ROS network dropped: message larger than buffer.\n%s" % msg)
             return -1
         else:
             # frame : header (1b) + msg_len(1b) + function(1b) + register_number(1b) + offset(1b) + count(1b) data(xb) + crc16(2b)
-            length_bytes = struct.pack('<h', length)
-            length_checksum = 255 - (sum(array.array('B', length_bytes)) % 256)
-            length_checksum_bytes = struct.pack('B', length_checksum)
+            header_bytes = struct.pack('<h', msg.header)
+            dataSize_bytes = struct.pack('<h', msg.dataSize)
+            function_bytes = struct.pack('<h', msg.function)
+            offset_bytes = struct.pack('<h', msg.offset)
+            count_bytes = struct.pack('<h', msg.count)
+            for element in msg.data :
+                data_bytes += struct.pack('<h', element)
+            crc16_bytes = struct.pack('<h', msg.crc16)
 
-            topic_bytes = struct.pack('<h', topic)
-            msg_checksum = 255 - (sum(array.array('B', topic_bytes + msg_bytes)) % 256)
-            msg_checksum_bytes = struct.pack('B', msg_checksum)
+            msg_bytes = header_bytes + dataSize_bytes + function_bytes + offset_bytes + count_bytes + data_bytes + crc16_bytes
 
-            self._write(self.header + length_bytes + length_checksum_bytes + topic_bytes + msg_bytes + msg_checksum_bytes)
-            return length
+            #length_bytes = struct.pack('<h', length)
+            #length_checksum = 255 - (sum(array.array('B', length_bytes)) % 256)
+            #length_checksum_bytes = struct.pack('B', length_checksum)
+
+            #topic_bytes = struct.pack('<h', topic)
+            #msg_checksum = 255 - (sum(array.array('B', topic_bytes + msg_bytes)) % 256)
+            #msg_checksum_bytes = struct.pack('B', msg_checksum)
+
+            self._write(msg_bytes)
+            return len(msg_bytes)
 
     def processWriteQueue(self):
         """
@@ -471,14 +499,38 @@ class SerialClient(object):
             if self.write_queue.empty():
                 time.sleep(0.01)
             else:
+                rospy.loginfo("Sending message from ROS to MCU")
                 data = self.write_queue.get()
                 while True:
                     try:
                         if isinstance(data, tuple):
-                            msg_type, msg = data
+                            topic, msg = data
                             self._send(topic, msg)
                         elif isinstance(data, bytes):
                             self._write(data)
+                        else:
+                            rospy.logerr("Trying to write invalid data type: %s" % type(data))
+                        break
+                    except SerialTimeoutException as exc:
+                        rospy.logerr('Write timeout: %s' % exc)
+                        time.sleep(1)
+                    except RuntimeError as exc:
+                        rospy.logerr('Write thread exception: %s' % exc)
+                        break
+
+            if self.general_write_queue.empty():
+                print(id(self.general_write_queue))
+                time.sleep(0.01)
+            else:
+                rospy.loginfo("Sending message from ROS to MCU")
+                data = self.general_write_queue.get()
+                while True:
+                    try:
+                        if isinstance(data, bytes):
+                            self._write(data)
+                        elif isinstance(data, McuToRosMsg):
+                            topic, msg = data
+                            self._write(msg.concatenateMessage())                        
                         else:
                             rospy.logerr("Trying to write invalid data type: %s" % type(data))
                         break

@@ -1,5 +1,5 @@
 uint8 header
-uint8 lengh
+uint8 dataSize
 uint8 function
 uint8 offset
 uint8 count

@@ -4,6 +4,7 @@ import rospy
 import serial
 import time
 from std_msgs.msg import String
+
 def serial_connection():
     rospy.init_node('serial_connection', anonymous = True)
     rate = rospy.Rate(10)

@@ -46,7 +46,7 @@ if __name__=="__main__":
     while not rospy.is_shutdown():
         rospy.loginfo("Connecting to %s at %d baud" % (port_name,baud) )
         try:
-            mcuSerialInterface = SerialClient(port_name, baud)
+            mcuSerialInterface = SerialClient(port_name, baud, 10000)
             #Publisher and subcriber creating
             mcuSerialInterface.callbacks[TopicInfo.ID_SUBSCRIBER](topicInfoSuscriber)
             mcuSerialInterface.callbacks[TopicInfo.ID_PUBLISHER](topicInforPublisher)
