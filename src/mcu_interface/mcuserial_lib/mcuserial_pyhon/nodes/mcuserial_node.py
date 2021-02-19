@@ -8,6 +8,9 @@ import multiprocessing
 
 from mcuserial_msgs.msg import TopicInfo, dataTemplate
 
+#print(id(mcuserial_python))
+#print(id(SerialClient))
+
 import sys
 
 if __name__=="__main__":

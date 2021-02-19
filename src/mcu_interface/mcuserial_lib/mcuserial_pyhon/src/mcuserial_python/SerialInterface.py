@@ -17,7 +17,7 @@ import rospy
 from std_msgs.msg import Time
 from mcuserial_msgs.msg import TopicInfo, Log
 from mcuserial_msgs.srv import RequestParamRequest, RequestParamResponse
-from mcuros_msgs.McuToRosMsg import *
+import mcuros_msgs
 
 import diagnostic_msgs.msg
 
@@ -111,6 +111,7 @@ class SerialClient(object):
     """
         ServiceServer responds to requests from the serial device.
     """
+    #general_write_queue = Queue.Queue()
 
     _instance = None
     def __new__(class_, *args, **kwargs):
@@ -501,6 +502,7 @@ class SerialClient(object):
             else:
                 rospy.loginfo("Sending message from ROS to MCU")
                 data = self.write_queue.get()
+                print(data)
                 while True:
                     try:
                         if isinstance(data, tuple):
@@ -519,7 +521,7 @@ class SerialClient(object):
                         break
 
             if self.general_write_queue.empty():
-                print(id(self.general_write_queue))
+                #print(id(self.general_write_queue))
                 time.sleep(0.01)
             else:
                 rospy.loginfo("Sending message from ROS to MCU")

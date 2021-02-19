@@ -6,6 +6,8 @@ from mcuros_msgs.McuToRosMsg import *
 from mcuserial_python import SerialClient
 from mcuserial_msgs.msg import TopicInfo, dataTemplate
 
+#print(id(mcuserial_python))
+#print(id(SerialClient))
 
 class mcuSerialInterface :
 
@@ -25,13 +27,13 @@ def callback():
 def buildMessage():
     message = dataTemplate()
 
-    message.header = 119
-    message.dataSize = 5
-    message.function = 3
-    message.offset = 2
-    message.count = 174
-    message.data = [45, 13, 78, 34, 21]
-    message.crc16 = 3
+    message.header = 0x77
+    message.dataSize = 0x0E
+    message.function = 0x24
+    message.offset = 0x05
+    message.count = 0x01
+    message.data = 0x99DAC5FFC5321CD
+    message.crc16 = 0x8CF8
 
     return message
 
@@ -42,16 +44,18 @@ if __name__ == "__main__" :
 
     publisher = rospy.Publisher("rosToMcu", dataTemplate, queue_size=10)
     msgT = buildMessage()
+    print(msgT)
 
-    msg = McuToRosMsg()
+    #msg = McuToRosMsg()
 
-    mcuSerialInterface = SerialClient('/dev/ttyUSB0', 9600, 10000)
+    #mcuSerialInterface = SerialClient('/dev/ttyUSB0', 9600, 10000)
 
     i = 0
     while not rospy.is_shutdown() :
-        #publisher.publish(msg)
-        print(id(mcuSerialInterface.general_write_queue))
-        mcuSerialInterface.send_internal_data(msg)
+        publisher.publish(msgT)
+        #print(id(mcuSerialInterface.general_write_queue))
+        #mcuSerialInterface.send_internal_data(msg)
+        
         i += 1
         print("number of message pushlished : {}".format(i))
         sleep(2)
