@@ -5,13 +5,28 @@ from mcuserial_python import SerialClient
 from serial import SerialException
 from time import sleep
 import multiprocessing
+import threading
+
+from ToBeRemoved import *
 
 from mcuserial_msgs.msg import TopicInfo, dataTemplate
 
-#print(id(mcuserial_python))
 #print(id(SerialClient))
 
 import sys
+
+def sendMessage(ThrEvent, serialClient):
+    ThrEvent = ThrEvent
+    msg = buildMessage()
+    msg = concatenateMessage(msg)    
+   
+    i = 0
+    while not rospy.is_shutdown() and not ThrEvent.is_set() :
+        serialClient.send(msg)        
+        i += 1
+        print("number of message pushlished : {}".format(i))
+        sleep(2)
+
 
 if __name__=="__main__":
     rospy.init_node("mcuserial_node")
@@ -26,35 +41,20 @@ if __name__=="__main__":
     if len(sys.argv) >= 2 :
         port_name  = sys.argv[1]
     if len(sys.argv) == 3 :
-        baud = int(sys.argv[2])
-
-
-    # ROS ---> MCU
-    topicInfoSuscriber = TopicInfo()
-    topicInfoSuscriber.topic_id = 100
-    topicInfoSuscriber.topic_name = "rosToMcu"
-    topicInfoSuscriber.message_type = "mcuserial_msgs/dataTemplate"
-    topicInfoSuscriber.md5sum = dataTemplate._md5sum
-    topicInfoSuscriber.buffer_size = 20
-
-    # MCU ---> ROS
-    topicInforPublisher = TopicInfo()
-    topicInforPublisher.topic_id = 200
-    topicInforPublisher.topic_name = "mcuToRos"
-    topicInforPublisher.message_type = "mcuserial_msgs/dataTemplate"
-    topicInforPublisher.md5sum = dataTemplate._md5sum
-    topicInforPublisher.buffer_size = 20
+        baud = int(sys.argv[2])     
 
     
     while not rospy.is_shutdown():
         rospy.loginfo("Connecting to %s at %d baud" % (port_name,baud) )
         try:
             mcuSerialInterface = SerialClient(port_name, baud, 10000)
-            #Publisher and subcriber creating
-            mcuSerialInterface.callbacks[TopicInfo.ID_SUBSCRIBER](topicInfoSuscriber)
-            mcuSerialInterface.callbacks[TopicInfo.ID_PUBLISHER](topicInforPublisher)
-            
+            ThrEvent = threading.Event()
+            wThread = threading.Thread(target=sendMessage, args=(ThrEvent, mcuSerialInterface))
+            wThread.daemon = True
+            wThread.start()
+
             mcuSerialInterface.run()
+
         except KeyboardInterrupt:
             break
         except SerialException:
@@ -63,8 +63,10 @@ if __name__=="__main__":
         except OSError:
             sleep(1.0)
             continue
-        except:
-            rospy.logwarn("Unexpected Error: %s", sys.exc_info()[0])
-            mcuSerialInterface.port.close()
-            sleep(1.0)
-            continue
+        #except:
+        #    rospy.logwarn("Unexpected Error: %s", sys.exc_info()[0])
+        #    ThrEvent.set()
+        #    mcuSerialInterface.port.close()
+        #    sleep(1.0)
+        #    continue
+
