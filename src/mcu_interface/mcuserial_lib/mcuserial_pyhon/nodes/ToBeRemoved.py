@@ -21,6 +21,5 @@ def buildMessage():
 
 
 def concatenateMessage(message) :
-    return message.header + message.dataSize + message.function + message.offset + message.count + message.data + message.crc16
+    return str(message.header) + str(message.dataSize) + str(message.function) + str(message.offset) + str(message.count) + str(message.data) + str(message.crc16)
 
-        

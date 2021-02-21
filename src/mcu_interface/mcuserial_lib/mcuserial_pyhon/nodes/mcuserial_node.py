@@ -8,17 +8,14 @@ import multiprocessing
 import threading
 
 from ToBeRemoved import *
-
 from mcuserial_msgs.msg import TopicInfo, dataTemplate
-
-#print(id(SerialClient))
 
 import sys
 
-def sendMessage(ThrEvent, serialClient):
+def sendMessage(ThrEvent, serialClient, index):
     ThrEvent = ThrEvent
     msg = buildMessage()
-    msg = concatenateMessage(msg)    
+    msg = concatenateMessage(msg) + " " + str(index)
    
     i = 0
     while not rospy.is_shutdown() and not ThrEvent.is_set() :
@@ -49,9 +46,32 @@ if __name__=="__main__":
         try:
             mcuSerialInterface = SerialClient(port_name, baud, 10000)
             ThrEvent = threading.Event()
-            wThread = threading.Thread(target=sendMessage, args=(ThrEvent, mcuSerialInterface))
+            wThread = threading.Thread(target=sendMessage, args=(ThrEvent, mcuSerialInterface, "Thread A"))
             wThread.daemon = True
             wThread.start()
+
+
+            waThread = threading.Thread(target=sendMessage, args=(ThrEvent, mcuSerialInterface, "Thread B"))
+            waThread.daemon = True
+            waThread.start()
+
+            wbThread = threading.Thread(target=sendMessage, args=(ThrEvent, mcuSerialInterface, "Thread C"))
+            wbThread.daemon = True
+            wbThread.start()
+
+            wcThread = threading.Thread(target=sendMessage, args=(ThrEvent, mcuSerialInterface, "Thread D"))
+            wcThread.daemon = True
+            wcThread.start()
+
+            wdThread = threading.Thread(target=sendMessage, args=(ThrEvent, mcuSerialInterface, "Thread E"))
+            wdThread.daemon = True
+            wdThread.start()
+
+
+            weThread = threading.Thread(target=sendMessage, args=(ThrEvent, mcuSerialInterface, "Thread F"))
+            weThread.daemon = True
+            weThread.start()
+
 
             mcuSerialInterface.run()
 
@@ -63,10 +83,10 @@ if __name__=="__main__":
         except OSError:
             sleep(1.0)
             continue
-        #except:
-        #    rospy.logwarn("Unexpected Error: %s", sys.exc_info()[0])
-        #    ThrEvent.set()
-        #    mcuSerialInterface.port.close()
-        #    sleep(1.0)
-        #    continue
+        except:
+            rospy.logwarn("Unexpected Error: %s", sys.exc_info()[0])
+            ThrEvent.set()
+            mcuSerialInterface.port.close()
+            sleep(1.0)
+            continue
 

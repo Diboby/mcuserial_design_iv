@@ -70,8 +70,9 @@ class SerialClient(object):
         self.header = b'\x77'
 
         self.read_lock = threading.RLock()
-
         self.write_lock = threading.RLock()
+        
+        self.writeQueue_lock = threading.RLock()
         self.write_queue = Queue.Queue()
         self.write_thread = None
 
@@ -266,9 +267,12 @@ class SerialClient(object):
         """
         Queues data to be written to the serial port.
         """
-        rospy.loginfo("Putting message in Queue (ROS ----> MCU)")        
+        rospy.loginfo("Putting message in Queue (ROS ----> MCU)")
         
-        self.write_queue.put(msg)
+        msg = str(msg).encode()
+        
+        with self.writeQueue_lock:
+            self.write_queue.put(msg)
 
     def _write(self, data):
         """
@@ -295,16 +299,14 @@ class SerialClient(object):
                 time.sleep(0.01)
             else:
                 rospy.loginfo("Sending message from ROS to MCU")
-                data = self.write_queue.get()
-                print(data)
+                data = self.write_queue.get()                
                 while True:
                     try:
-                        if isinstance(data, int):
-                            data = struct.pack(str(data))
-                            data = b'\0x77\0x28\0x68\0x73\0x29\0x64\0x08\0x12'
+                        if isinstance(data, bytes):
                             self._write(data)
-                        elif isinstance(data, bytes):
-                            self._write(data)
+                        elif isinstance(data, int) or isinstance(data, long):
+                            data = str(data).encode()
+                            self._write(data)                        
                         else:
                             rospy.logerr("Trying to write invalid data type: %s" % type(data))
                         break
