@@ -46,26 +46,26 @@ if __name__=="__main__":
         try:
             mcuSerialInterface = SerialClient(port_name, baud, 10000)
             ThrEvent = threading.Event()
-            wThread = threading.Thread(target=sendMessage, args=(ThrEvent, mcuSerialInterface, "Thread A"))
-            wThread.daemon = True
-            wThread.start()
-
-
-            waThread = threading.Thread(target=sendMessage, args=(ThrEvent, mcuSerialInterface, "Thread B"))
+            waThread = threading.Thread(target=sendMessage, args=(ThrEvent, mcuSerialInterface, "Thread A"))
             waThread.daemon = True
             waThread.start()
 
-            wbThread = threading.Thread(target=sendMessage, args=(ThrEvent, mcuSerialInterface, "Thread C"))
+
+            wbThread = threading.Thread(target=sendMessage, args=(ThrEvent, mcuSerialInterface, "Thread B"))
             wbThread.daemon = True
             wbThread.start()
 
-            wcThread = threading.Thread(target=sendMessage, args=(ThrEvent, mcuSerialInterface, "Thread D"))
+            wcThread = threading.Thread(target=sendMessage, args=(ThrEvent, mcuSerialInterface, "Thread C"))
             wcThread.daemon = True
             wcThread.start()
 
-            wdThread = threading.Thread(target=sendMessage, args=(ThrEvent, mcuSerialInterface, "Thread E"))
+            wdThread = threading.Thread(target=sendMessage, args=(ThrEvent, mcuSerialInterface, "Thread D"))
             wdThread.daemon = True
             wdThread.start()
+
+            weThread = threading.Thread(target=sendMessage, args=(ThrEvent, mcuSerialInterface, "Thread E"))
+            weThread.daemon = True
+            weThread.start()
 
 
             weThread = threading.Thread(target=sendMessage, args=(ThrEvent, mcuSerialInterface, "Thread F"))
