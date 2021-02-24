@@ -44,7 +44,7 @@ if __name__=="__main__":
     while not rospy.is_shutdown():
         rospy.loginfo("Connecting to %s at %d baud" % (port_name,baud) )
         try:
-            mcuSerialInterface = SerialClient(port_name, baud, 10000)
+            mcuSerialInterface = SerialClient(port_name, baud, 10)
             ThrEvent = threading.Event()
             waThread = threading.Thread(target=sendMessage, args=(ThrEvent, mcuSerialInterface, "Thread A"))
             waThread.daemon = True
