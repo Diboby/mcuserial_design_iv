@@ -269,7 +269,7 @@ class SerialClient(object):
         """
         rospy.loginfo("Putting message in Queue (ROS ----> MCU)")
         
-        msg = str(msg).encode()
+        #msg = str(msg).encode()
         
         with self.writeQueue_lock:
             self.write_queue.put(msg)
@@ -285,6 +285,7 @@ class SerialClient(object):
     def _send(self, msg):
         """
         Send a message on a particular topic to the device.
+        Not finally used.
         """
         length = msg.dataSize + 10
 
@@ -303,6 +304,8 @@ class SerialClient(object):
                 while True:
                     try:
                         if isinstance(data, bytes):
+                            self._write(data)
+                        elif isinstance(data, bytearray):
                             self._write(data)
                         elif isinstance(data, int) or isinstance(data, long):
                             data = str(data).encode()

@@ -1,7 +1,8 @@
-string name
+int32 utility
+int32[][] associated_data
 
 ---
 
-int32[]   ints
 float32[] floats
-string[]  strings
+bool is_error
+int32[] error_code

@@ -58,13 +58,13 @@ def CRC16_Compute(data, size):
 class abstraction_layer:
 
     def __init__(self):
-        # TODO Create serial port instance from RO's code
-        self.next_seq_num = 0
-        self.seq_num_in_use = set()
+        pass        
 
-    def message_constructor(self, mcu_reg_number, mcu_function_number, data, list_offset, list_count):
+    def message_constructor(self, mcu_reg_number, mcu_num_seq, mcu_function_number, data, list_offset, list_count, can_send_data):
+        if not can_send_data:
+            data = None
+        
         mcu_header = 0x77
-        mcu_num_seq = self.message_sequence_attributer()
 
         list_size = 0
         if list_offset is not None:
@@ -85,56 +85,36 @@ class abstraction_layer:
                 send_msg.append(data[i])
         crc = CRC16_Compute(send_msg, len(send_msg))
 
-        return mcu_header, mcu_packetsize, mcu_fused_seq_func, mcu_reg_number, list_offset, list_count, data, crc  # TODO RETURN DATA TEMPLATE FROM RO
+        packet = bytearray()
+        packet.append(mcu_header)
+        packet.append(mcu_packetsize)
+        packet.append(mcu_fused_seq_func)
+        packet.append(mcu_reg_number)
+        if list_offset is not None and list_count is not None:
+            packet.append(list_offset)
+            packet.append(list_count)
+        if data is not None:
+            taille = int(math.ceil((float(len(hex(data))) - 2) / 2))            
+            mask = 0xFF
+            liste = []
+            for i in range(taille):
+                liste.append((data & mask) >> i * 8)
+                mask = mask << 8
+            for i in range(len(liste) - 1, -1, -1):
+                packet.append(liste[i])
+        packet.append(crc >> 8)
+        packet.append(crc & 0xFF)
 
-    # Knows the logic between each message exchange so that one message transmitted should have an ack, and
-    # if it's the case, a response message containing data. If nack, resend message a couple of times. If nack
-    # all the time, throws exception so that main entry point can send back to the service a None data type
-    # because communication seems wrong.
-    def message_sequence_attributer(self):
-        attributed_num = self.next_seq_num
+        return packet
 
-        if set([attributed_num]).issubset(self.seq_num_in_use):
-            notFound = True
-            for i in range(1, 16):
-                test_num = (attributed_num + i) % 16
-                if set([test_num]).isdisjoint(self.seq_num_in_use):
-                    attributed_num = test_num
-                    notFound = False
-                    break
-
-            if notFound:
-                raise ID_ATTRIBUTION_FAILED
-
-        self.next_seq_num = (self.next_seq_num + 1) % 16
-        self.seq_num_in_use.add(attributed_num)
-
-        return attributed_num
-
-    def message_sequencer(self, mcu_reg_number, mcu_function_number, data, list_offset, list_count, can_send_data):
-        dataTemp = data
-        if not can_send_data:
-            dataTemp = None
-        mcu_command = self.message_constructor(mcu_reg_number, mcu_function_number, dataTemp, list_offset, list_count)
-        # TODO send command
-        # TODO wait for ack
-        # TODO wait for data
-        # TODO send ack
-        # TODO if nack, check error type
-        # TODO resend if possible
-        # TODO else, tell user that problem with command
-        # TODO if timeout, resend
-        print(mcu_command)
-        self.seq_num_in_use.remove(mcu_command[2] >> 4)
-        return mcu_command
-
+    
     # Entry point to abstraction layer, utility is the command number to be sent to MCU (ex : read temperature)
     # arg_associated_data is the parameters of the command, contained in an array. [[ids of devices], [command data]]
     # Ex : command, write output state of device 0 and 3, so that 0 is opened and 3 is closed [[0 3], [1 0]] .
     # Ex : command is to read temperature, arg_associated_data needs to be [].
-    def entry_point_to_main_controller(self, utility, arg_associated_data=[]):
+    def entry_point_to_main_controller(self, utility, mcu_num_seq, arg_associated_data=[]):
 
-        mcu_response = 0
+        mcu_response = []
         try:
             if type(utility) is not int:
                 raise INPUT_WRONG_FORMAT
@@ -171,14 +151,13 @@ class abstraction_layer:
                 if not idx_segments:
                     list_offset = device_ids[0] + index_start_list
                     list_count = len(device_ids)
-                    mcu_response = self.message_sequencer(mcu_reg_number,
+                    mcu_response.append(self.message_constructor(mcu_reg_number,
                                                           mcu_function_number,
-                                                          command_data, list_offset, list_count, can_send_data)
+                                                          command_data, list_offset, list_count, can_send_data))
                 else:
                     idx_segments.insert(0, 0)
                     idx_segments.append(len(device_ids) - 1)
 
-                    mcu_response = []
                     for i in range(len(idx_segments) - 1):
 
                         device_ids_i = device_ids[idx_segments[i]:idx_segments[i + 1]]
@@ -193,15 +172,15 @@ class abstraction_layer:
                             list_offset = device_ids_i[0] + index_start_list
                             list_count = len(device_ids_i)
 
-                        mcu_response_i = self.message_sequencer(mcu_reg_number,
+                        mcu_response_i = self.message_constructor(mcu_reg_number,
                                                                 mcu_function_number,
                                                                 command_data_i, list_offset, list_count, can_send_data)
                         mcu_response.append(mcu_response_i)
 
             else:
-                mcu_response = self.message_sequencer(mcu_reg_number,
+                mcu_response.append(self.message_constructor(mcu_reg_number,
                                                       mcu_function_number,
-                                                      command_data, list_offset, list_count, can_send_data)
+                                                      command_data, list_offset, list_count, can_send_data))
 
         except ID_ATTRIBUTION_FAILED:
             print("Too many requests at once. System is out of message ID's. Retry later.")
@@ -212,7 +191,7 @@ class abstraction_layer:
 
         return mcu_response
 
-
+"""
 abs = abstraction_layer()
 
 test = abs.entry_point_to_main_controller(4, [[0, 1, 3, 5], [1, 1, 1, 1]])
@@ -234,3 +213,4 @@ test = abs.entry_point_to_main_controller(4, [[0, 1, 3, 5], [1, 1, 1, 1]])
 test = abs.entry_point_to_main_controller(4, [[0, 1, 3, 5], [1, 1, 1, 1]])
 test = abs.entry_point_to_main_controller(4, [[0, 1, 3, 5], [1, 1, 1, 1]])
 print(test)
+"""
