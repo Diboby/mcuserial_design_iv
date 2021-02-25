@@ -282,15 +282,6 @@ class SerialClient(object):
             self.port.write(data)
             self.last_write = rospy.Time.now()
 
-    def _send(self, msg):
-        """
-        Send a message on a particular topic to the device.
-        Not finally used.
-        """
-        length = msg.dataSize + 10
-
-        # frame : header (1b) + msg_len(1b) + function(1b) + register_number(1b) + offset(1b) + count(1b) data(xb) + crc16(2b)        
-
     def processWriteQueue(self):
         """
         Main loop for the thread that processes outgoing data to write to the serial port.

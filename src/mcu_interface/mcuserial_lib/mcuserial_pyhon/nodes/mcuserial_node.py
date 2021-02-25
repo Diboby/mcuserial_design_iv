@@ -1,20 +1,19 @@
 #!/usr/bin/env python
 
-import rospy
-from mcuserial_python import SerialClient
-from serial import SerialException
-from time import sleep
-import multiprocessing
-import threading
-from mainController import *
-import Queue
+import sys
 import time
+import rospy
+import Queue
+import threading
+import multiprocessing
 
 from ToBeRemoved import *
-from mcuserial_msgs.msg import TopicInfo, dataTemplate
+from mainController import *
 from mcuserial_msgs.srv import *
 
-import sys
+from mcuserial_python import SerialClient
+from serial import SerialException
+from mcuserial_msgs.msg import TopicInfo, dataTemplate
 
 noeud_write_queue = Queue.Queue()
 noeud_reception_queue = Queue.Queue()
@@ -40,7 +39,7 @@ def noeud_service_callback(thread_event) :
         time.sleep(1)
     """
 
-def sendMessage(self, thread_event, serialClient):
+def sendMessage(thread_event, serialClient):
     thread_event = thread_event
     while not rospy.is_shutdown() and not thread_event.is_set():
         if noeud_write_queue.empty():
@@ -129,7 +128,7 @@ if __name__=="__main__":
             noeud_send_msg_thread.daemon = True
             noeud_send_msg_thread.start()
 
-            serial_service = rospy.Service("alim_serial_com", RequestParam, noeud_service_callback)
+            serial_service = rospy.Service('alim_serial_com', RequestParam, noeud_service_callback)
 
             mcu_serial_interface.run()            
 
@@ -142,10 +141,10 @@ if __name__=="__main__":
         except OSError:
             sleep(1.0)
             continue
-        except:
-            rospy.logwarn("Unexpected Error: %s", sys.exc_info()[0])
-            thread_event.set()
-            mcu_serial_interface.port.close()
-            sleep(1.0)
-            continue
+        #except:
+        #    rospy.logwarn("Unexpected Error: %s", sys.exc_info()[0])
+        #    thread_event.set()
+        #    mcu_serial_interface.port.close()
+        #    sleep(1.0)
+        #    continue
 
