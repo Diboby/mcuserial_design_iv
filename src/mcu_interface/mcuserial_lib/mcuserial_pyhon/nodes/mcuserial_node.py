@@ -12,21 +12,18 @@ import time
 
 from ToBeRemoved import *
 from mcuserial_msgs.msg import TopicInfo, dataTemplate
+from mcuserial_msgs.srv import *
 
 import sys
 
+noeud_write_queue = Queue.Queue()
+noeud_reception_queue = Queue.Queue()
 
-class controller:
-    
+next_seq_num = 0
+seq_num_in_use = set()
 
-    next_seq_num = 0
-    seq_num_in_use = set()
 
-    def __init__():
-        self.noeud_write_queue = Queue.Queue()
-        self.noeud_reception_queue = Queue.Queue()
-
-    def noeud_service_callback(self, thread_event) :
+def noeud_service_callback(thread_event) :
     # Attribuer un ID a ce message
     # Appeler l'abstraction layer
     data = ""
@@ -43,7 +40,7 @@ class controller:
         time.sleep(1)
     """
 
-    def sendMessage(self, thread_event, serialClient):
+def sendMessage(self, thread_event, serialClient):
     thread_event = thread_event
     while not rospy.is_shutdown() and not thread_event.is_set():
         if noeud_write_queue.empty():
@@ -52,12 +49,9 @@ class controller:
             data = noeud_write_queue.get()
             
             serialClient.send(data)
-
-
-
             
             #if isinstance(data, bytes) :                    
-            #    serialClient.send(data)
+            #    serialClient.send(data)   
 
 
 """
@@ -106,6 +100,7 @@ def message_sequencer(self, mcu_reg_number, mcu_function_number, data, list_offs
 
 """
 
+serial_service = rospy.Service("alim_serial_com", RequestParam, noeud_service_callback)
 
 
 if __name__=="__main__":
@@ -128,16 +123,13 @@ if __name__=="__main__":
         rospy.loginfo("Connecting to %s at %d baud" % (port_name,baud) )
         try:
             mcu_serial_interface = SerialClient(port_name, baud, 10)
-            #abstraction_layer = abstraction_layer(SerialClient, noeud_reception_queue)
-
+           
             thread_event = threading.Event()            
             noeud_send_msg_thread = threading.Thread(target=sendMessage, args=(thread_event, mcu_serial_interface))
             noeud_send_msg_thread.daemon = True
             noeud_send_msg_thread.start()
 
-            send_msg_thread = threading.Thread(target=noeud_service_callback, args=(thread_event,))
-            send_msg_thread.daemon = True
-            send_msg_thread.start()
+            serial_service = rospy.Service("alim_serial_com", RequestParam, noeud_service_callback)
 
             mcu_serial_interface.run()            
 

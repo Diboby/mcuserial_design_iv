@@ -1,5 +1,6 @@
 int32 utility
-int32[][] associated_data
+int32[] device_ids
+int32[] command_data
 
 ---
 
