@@ -60,10 +60,6 @@ def sendMessage(thread_event, serialClient):
 
             serialClient.send(data)
 
-            # if isinstance(data, bytes) :
-            #    serialClient.send(data)   
-
-
 def message_sequence_attributer(next_seq_num, seq_num_in_use):
     attributed_num = next_seq_num
 
@@ -112,7 +108,7 @@ if __name__ == "__main__":
             noeud_send_msg_thread.daemon = True
             noeud_send_msg_thread.start()
 
-            serial_service = rospy.Service('alim_serial_com', RequestParam, noeud_service_callback)
+            #serial_service = rospy.Service('alim_serial_com', RequestParam, noeud_service_callback)
 
             mcu_serial_interface.run()
 
