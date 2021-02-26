@@ -24,8 +24,7 @@ seq_num_in_use = set()
 
 def noeud_service_callback(req):
     curr_id = message_sequence_attributer(next_seq_num, seq_num_in_use)
-    # data = abstraction_layer.entry_point_to_main_controller(utility, curr_id, [device_ids, command_data])
-    data = ""
+    data = abstraction_layer.entry_point_to_main_controller(utility, curr_id, [device_ids, command_data])
     noeud_write_queue.put(data)
 
     # TODO send command
@@ -38,16 +37,6 @@ def noeud_service_callback(req):
     # TODO if timeout, resend
 
     seq_num_in_use.remove(curr_id)  # When finished, ID removed
-
-    """
-    msg = buildMessage()
-    data = concatenateMessage(msg)
-
-    thread_event = thread_event
-    while not rospy.is_shutdown() and not thread_event.is_set():
-        noeud_write_queue.put(data)
-        time.sleep(1)
-    """
 
 
 def sendMessage(thread_event, serialClient):
