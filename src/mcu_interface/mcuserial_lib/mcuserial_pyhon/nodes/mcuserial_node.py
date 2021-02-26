@@ -9,7 +9,7 @@ import multiprocessing
 
 from ToBeRemoved import *
 from mainController import *
-from mcuserial_msgs.srv import *
+from mcuserial_msgs.srv import RequestParam
 
 from mcuserial_python import SerialClient
 from serial import SerialException
@@ -22,7 +22,7 @@ next_seq_num = 0
 seq_num_in_use = set()
 
 
-def noeud_service_callback(thread_event):
+def noeud_service_callback(req):
     curr_id = message_sequence_attributer(next_seq_num, seq_num_in_use)
     # data = abstraction_layer.entry_point_to_main_controller(utility, curr_id, [device_ids, command_data])
     data = ""
@@ -80,7 +80,7 @@ def message_sequence_attributer(next_seq_num, seq_num_in_use):
 
     return attributed_num
 
-
+# alimentation serial communication service
 serial_service = rospy.Service("alim_serial_com", RequestParam, noeud_service_callback)
 
 if __name__ == "__main__":
@@ -107,8 +107,6 @@ if __name__ == "__main__":
             noeud_send_msg_thread = threading.Thread(target=sendMessage, args=(thread_event, mcu_serial_interface))
             noeud_send_msg_thread.daemon = True
             noeud_send_msg_thread.start()
-
-            #serial_service = rospy.Service('alim_serial_com', RequestParam, noeud_service_callback)
 
             mcu_serial_interface.run()
 
