@@ -1,19 +1,21 @@
 # TODO INPUT REAL PARAMETERS
 
-number_of_outputs = 3
-number_of_fuses = 3
+#number_of_outputs = 3
+#number_of_fuses = 3
 
 read_function_number = 0x1
 write_function_number = 0x2
 read_list_function_number = 0x3
 write_list_function_number = 0x4
 
-temperature_reg_number = 0xA0
-tension_alim_reg_number = 0xE2
-courant_alim_reg_number = 0xC4
-puissance_alim_reg_number = 0x19
-fuse_state_reg_number = 0x9B
-output_control_reg_number = 0x3C
+temperature_reg_number = 0x10 # READS FLOAT
+tension_alim_reg_number = 0x01 # READS FLOAT
+courant_alim_reg_number = 0x02 # READS FLOAT
+puissance_alim_reg_number = 0x03 # READS FLOAT
+
+fuse_isokay_reg_number = 0x30 # READS int REPRESENTING BOOL (0 = FALSE, ELSE 1)
+fuse_issurcharge_reg_number = 0x31 # READS int REPRESENTING BOOL (0 = FALSE, ELSE 1)
+output_control_reg_number = 0x50 # READS OR WRITE int REPRESENTING BOOL (0 = FALSE, ELSE 1)
 
 fuse_index_start_list = 0x00
 output_index_start_list = 0x00
@@ -58,19 +60,26 @@ def write_output():
     return mcu_function_number, mcu_reg_number, index_start_list, can_send_data
 
 
-def read_fuse_state():
+def read_output():
     mcu_function_number = read_list_function_number
-    mcu_reg_number = fuse_state_reg_number
-    index_start_list = fuse_index_start_list
+    mcu_reg_number = output_control_reg_number
+    index_start_list = output_index_start_list
     can_send_data = False
     return mcu_function_number, mcu_reg_number, index_start_list, can_send_data
 
 
-def write_fuse_state():
+def read_fuse_isokay_state():
     mcu_function_number = write_list_function_number
-    mcu_reg_number = fuse_state_reg_number
+    mcu_reg_number = fuse_isokay_reg_number
     index_start_list = fuse_index_start_list
-    can_send_data = True
+    can_send_data = False
+    return mcu_function_number, mcu_reg_number, index_start_list, can_send_data
+    
+def read_fuse_issurcourant_state():
+    mcu_function_number = write_list_function_number
+    mcu_reg_number = fuse_issurcharge_reg_number
+    index_start_list = fuse_index_start_list
+    can_send_data = False
     return mcu_function_number, mcu_reg_number, index_start_list, can_send_data
 
 
@@ -79,6 +88,7 @@ find_utility_params = {0: read_temp,
                        2: read_courant_alim,
                        3: read_puissance_alim,
                        4: write_output,
-                       5: read_fuse_state,
-                       6: write_fuse_state
+                       5: read_output,
+                       6: read_fuse_isokay_state,
+                       7: read_fuse_issurcourant_state
                        }
