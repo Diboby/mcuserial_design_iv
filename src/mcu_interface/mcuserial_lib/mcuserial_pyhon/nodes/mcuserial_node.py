@@ -24,7 +24,7 @@ seq_num_in_use = set()
 
 def noeud_service_callback(req):
     curr_id = message_sequence_attributer(next_seq_num, seq_num_in_use)
-    data = abstraction_layer.entry_point_to_main_controller(utility, curr_id, [device_ids, command_data])
+    data = abstraction_layer.entry_point_to_main_controller(req.utility, curr_id, [req.device_ids, req.command_data])
     noeud_write_queue.put(data)
 
     # TODO send command

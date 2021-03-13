@@ -5,7 +5,7 @@ import Queue
 import threading
 import multiprocessing
 
-from mcuserial_msgs.srv import RequestParam
+from mcuserial_msgs.srv import RequestParam, multiple_call_test
 
 from mcuserial_python import SerialClient
 from serial import SerialException
@@ -18,7 +18,7 @@ noeud_reception_queue = Queue.Queue()
 
 def noeud_service_callback(req):
     curr_id = message_sequence_attributer(next_seq_num, seq_num_in_use)
-    # data = abstraction_layer.entry_point_to_main_controller(utility, curr_id, [device_ids, command_data])
+    
     s = getattr(req, any)
     print(s)
     data = ""
@@ -34,9 +34,8 @@ def noeud_service_callback(req):
     seq_num_in_use.remove(curr_id)  # When finished, ID removed
 
 
-
 # alimentation serial communication service
-serial_service = rospy.Service("alim_serial_com_test", RequestParam, noeud_service_callback)
+serial_service = rospy.Service("alim_serial_com_test", multiple_call_test, noeud_service_callback)
 
 
 if __name__ == "__main__":
