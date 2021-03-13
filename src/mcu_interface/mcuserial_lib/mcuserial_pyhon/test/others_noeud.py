@@ -21,7 +21,7 @@ if __name__ == "__main__":
     try:
         alim_serial_service = rospy.ServiceProxy('alim_serial_com', alim_serial_com_srv)
         while not rospy.is_shutdown():
-            resp = alim_serial_service(5, [32, 14], [20, 18])
+            resp = alim_serial_service(1, [32, ], [20, ])
             print(resp.floats)
             sleep(3)
     except rospy.ServiceException as e:

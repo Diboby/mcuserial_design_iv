@@ -35,8 +35,18 @@ def noeud_service_callback(req):
     for element in data:
         noeud_write_queue.put(element)
 
-    while node_reception_queue.empty():
-        pass
+    while not rospy.is_shutdown():
+        if node_reception_queue.empty():
+            time.sleep(0.01)
+        else:
+            msg_bytes = ''
+            with read_node_Queue_lock:
+                msg_bytes = node_reception_queue.get()
+
+        # continuez le traitement ici :)
+   
+
+    print("data receive in node_reception_queue")
     
     # TODO send command
     # TODO wait for ack

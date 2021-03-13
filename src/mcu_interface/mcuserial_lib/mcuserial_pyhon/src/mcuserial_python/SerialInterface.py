@@ -190,12 +190,12 @@ class SerialClient(object):
                         time.sleep(0.001)
                         continue
 
-                # On commence la lecture
+                # we begin reading
                 # Read header
                 flag = 0x00
                 read_step = 'header'
                 flag = self.tryRead(1)
-                if (flag != self.header):
+                if (ord(flag) != self.header):
                     continue
                 msg_bytes = bytearray()
                 msg_bytes.extend(flag)
@@ -205,8 +205,8 @@ class SerialClient(object):
                 read_step = 'packet size'
                 packet_size_bytes = self.tryRead(1)
                 msg_bytes.extend(packet_size_bytes)
-                packet_size = int(packet_size_bytes)
-                
+                packet_size = ord(packet_size_bytes)
+
                 #msg_length, _ = struct.unpack(">hB", msg_len_bytes)
 
                 # Read serialized message data.
