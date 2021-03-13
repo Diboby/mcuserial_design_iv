@@ -67,7 +67,7 @@ class SerialClient(object):
     def __init__(self, port='/dev/ttyUSB0', baud=9600, timeout=5.0):
         """ Initialize node, connect to bus, attempt to negotiate topics. """
 
-        self.header = b'\x77'
+        self.header = 0x77
 
         self.read_lock = threading.RLock()
         self.write_lock = threading.RLock()
@@ -75,6 +75,9 @@ class SerialClient(object):
         self.writeQueue_lock = threading.RLock()
         self.write_queue = Queue.Queue()
         self.write_thread = None
+
+        self.readQueue_lock = threading.RLock()
+        self.read_queue = Queue.Queue()
         self.read_thread = None
 
         self.lastsync = rospy.Time(0)
@@ -153,10 +156,29 @@ class SerialClient(object):
         except Exception as e:
             raise IOError("Serial Port read failure: %s" % e)
 
+    def tryReadAll(self, length):
+        """ Read all the message arrived on the serial port from mcu to ROS """
+        try:
+            read_start = time.time()
+            result = bytearray()
+            while time.time() - read_start < self.timeout:
+                with self.read_lock:
+                    received = self.port.read()
+                if len(received) != 0:
+                    self.last_read = rospy.Time.now()
+                    result.extend(received)
+
+            return bytes(result)
+        except Exception as e:
+            raise IOError("Serial Port read failure: %s" % e)
+
+
     def handle_data_reception(self):
+        """ Handle message reception from mcu to ROS : First treating function. """
         # Handle reading.
         data = ''
         read_step = None
+        result = bytearray()
         while self.write_thread.is_alive() and not rospy.is_shutdown():
             
             # This try-block is here because we make multiple calls to read(). Any one of them can throw
@@ -170,73 +192,37 @@ class SerialClient(object):
 
                 # On commence la lecture
                 # Read header
-                
-                flag = b'\0x00'
+                flag = 0x00
                 read_step = 'header'
                 flag = self.tryRead(1)
                 if (flag != self.header):
                     continue
+                msg_bytes = bytearray()
+                msg_bytes.extend(flag)
 
-                # Read message length, checksum (3 bytes)
                 # For details about unpack, follow https://docs.python.org/3/library/struct.html
 
-                read_step = 'message length'
-                msg_len_bytes = self.tryRead(1)
-                msg_length, _ = struct.unpack(">hB", msg_len_bytes)
-
-                # Validate message length checksum.
-                if sum(array.array("B", msg_len_bytes)) % 256 != 255:
-                    rospy.loginfo("Wrong checksum for msg length, length %d, dropping message." % (msg_length))
-                    continue
-
-                # Read function (1 byte)
-                read_step = 'function'
-                function_byte = self.tryRead(1)
-                function, = struct.unpack(">B", function_byte)
-
-                # Read register (1 byte)
-                read_step = 'register'
-                register_byte = self.tryRead(1)
-                register, = struct.unpack(">B", register_byte)
-
-                # Read register (1 byte)
-                read_step = 'offset'
-                offset_byte = self.tryRead(1)
-                offset, = struct.unpack(">B", offset_byte)
-
-                # Read register (1 byte)
-                read_step = 'count'
-                count_byte = self.tryRead(1)
-                count, = struct.unpack(">B", count_byte)
+                read_step = 'packet size'
+                packet_size_bytes = self.tryRead(1)
+                msg_bytes.extend(packet_size_bytes)
+                packet_size = int(packet_size_bytes)
+                
+                #msg_length, _ = struct.unpack(">hB", msg_len_bytes)
 
                 # Read serialized message data.
                 read_step = 'data'
                 try:
-                    msg = self.tryRead(msg_length)
+                    data_bytes = self.tryRead(packet_size)
+                    msg_bytes.extend(data_bytes)
+
                 except IOError:
                     self.sendDiagnostics(diagnostic_msgs.msg.DiagnosticStatus.ERROR, ERROR_PACKET_FAILED)
                     rospy.loginfo("Packet Failed :  Failed to read msg data")
                     rospy.loginfo("expected msg length is %d", msg_length)
                     raise
 
-                # Reada checksum for topic id and msg
-                read_step = 'data checksum'
-                chk = self.tryRead(2)
-                checksum = sum(array.array('B', header + msg + chk))
-
-                # Validate checksum.
-                if checksum % 256 == 255:
-                    self.synced = True
-                    self.lastsync_success = rospy.Time.now()
-                    try:
-                        topic_id = 200
-                        self.callbacks[topic_id](msg)
-                    except KeyError:
-                        rospy.logerr("Tried to publish before configured, topic id %d" % topic_id)
-                        self.requestTopics()
-                    time.sleep(0.001)
-                else:
-                    rospy.loginfo("wrong checksum for topic id and msg")
+                with self.read_lock:
+                    self.read_queue.put(msg_bytes)
 
             except IOError as exc:
                 rospy.logwarn('Last read step: %s' % read_step)

@@ -1,0 +1,9 @@
+int32 utility
+int32[] device_ids
+int32[] command_data
+
+---
+
+float32 floats
+bool is_error
+int32 error_code

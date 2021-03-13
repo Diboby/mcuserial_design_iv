@@ -15,8 +15,12 @@ from mcuserial_python import SerialClient
 from serial import SerialException
 from mcuserial_msgs.msg import TopicInfo, dataTemplate
 
+
+write_node_Queue_lock = threading.RLock()
 noeud_write_queue = Queue.Queue()
-noeud_reception_queue = Queue.Queue()
+
+read_node_Queue_lock = threading.RLock()
+node_reception_queue = Queue.Queue()
 
 next_seq_num = 0
 seq_num_in_use = set()
@@ -31,10 +35,9 @@ def noeud_service_callback(req):
     for element in data:
         noeud_write_queue.put(element)
 
-    while noeud_reception_queue.empty():
+    while node_reception_queue.empty():
         pass
-
-
+    
     # TODO send command
     # TODO wait for ack
     # TODO wait for data
@@ -53,9 +56,21 @@ def sendMessage(thread_event, serialClient):
         if noeud_write_queue.empty():
             time.sleep(0.01)
         else:
-            data = noeud_write_queue.get()
+            with write_node_Queue_lock:
+                data = noeud_write_queue.get()
 
             serialClient.send(data)
+
+
+def receiveMessage(thread_event, serialClient):
+    thread_event = thread_event
+    while not rospy.is_shutdown() and not thread_event.is_set():
+        if serialClient.read_queue.empty():
+            time.sleep(0.01)
+        else:
+            data = serialClient.read_queue.get()
+            with read_node_Queue_lock:
+                node_reception_queue.put(data)
 
 def message_sequence_attributer(next_seq_num, seq_num_in_use):
     attributed_num = next_seq_num
@@ -102,6 +117,10 @@ if __name__ == "__main__":
 
             thread_event = threading.Event()
             noeud_send_msg_thread = threading.Thread(target=sendMessage, args=(thread_event, mcu_serial_interface))
+            noeud_send_msg_thread.daemon = True
+            noeud_send_msg_thread.start()
+
+            noeud_send_msg_thread = threading.Thread(target=receiveMessage, args=(thread_event, mcu_serial_interface))
             noeud_send_msg_thread.daemon = True
             noeud_send_msg_thread.start()
 
