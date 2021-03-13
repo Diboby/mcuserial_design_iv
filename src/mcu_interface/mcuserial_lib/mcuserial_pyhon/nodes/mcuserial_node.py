@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import sys
+import struct
 import time
 import rospy
 import Queue
@@ -25,6 +26,45 @@ node_reception_queue = Queue.Queue()
 next_seq_num = 0
 seq_num_in_use = set()
 
+def parse_correct_data(msg):
+    packet_size = int(msg[1])
+    computed_crc = CRC16_Compute(msg, packet_size-1)
+    given_crc = int(str(msg[len(msg)-2:len(msg)]).encode('hex'), 16)
+
+    valid_crc = (given_crc == computed_crc)
+
+    seq_num = (int(str(msg[2]).encode('hex'), 16) & 0xF0) >> 4
+    function_num = int(str(msg[2]).encode('hex'), 16) & 0xF
+
+    valid_function = (function_num==0xB or function_num==0xC)
+
+    is_correct = valid_function and valid_crc
+
+    if function_num == 0xB:
+        is_ack = 1
+    else:
+        is_ack = 0
+    
+    if function_num == 0xC:
+        is_nack = 1
+    else:
+        is_nack = 0
+    
+    try:
+        data_out = msg[6:-2]
+        data_out.reverse()
+        data_out = int(str(data_out).encode('hex'), 16)
+    except Exception:
+        data_out = None
+
+    return is_correct, is_ack, is_nack, data_out
+
+def print_hexstr(inputdd, monko):
+    string = monko
+    for b in inputdd:
+        string = string + str(hex(b)) + ' '
+    print(string)
+
 def noeud_service_callback(req):
     curr_id = message_sequence_attributer(next_seq_num, seq_num_in_use)
     utility = req.utility
@@ -33,20 +73,20 @@ def noeud_service_callback(req):
     data = entry_point_to_main_controller(utility, curr_id, [device_ids, command_data])
 
     for element in data:
+        print_hexstr(element, 'to be sent')
         noeud_write_queue.put(element)
 
+    msg_bytes = ''
     while not rospy.is_shutdown():
         if node_reception_queue.empty():
             time.sleep(0.01)
         else:
-            msg_bytes = ''
             with read_node_Queue_lock:
                 msg_bytes = node_reception_queue.get()
-
-        # continuez le traitement ici :)
+                break
    
-
-    print("data receive in node_reception_queue")
+    is_correct, is_ack, is_nack, data_out = parse_correct_data(msg_bytes)
+    print_hexstr(msg_bytes, 'received')
     
     # TODO send command
     # TODO wait for ack
@@ -110,7 +150,7 @@ if __name__ == "__main__":
     serial_service = rospy.Service("alim_serial_com", alim_serial_com_srv, noeud_service_callback)
 
     port_name = rospy.get_param('~port', '/dev/ttyUSB0')
-    baud = int(rospy.get_param('~baud', '9600'))
+    baud = int(rospy.get_param('~baud', '115200'))
 
     sys.argv = rospy.myargv(argv=sys.argv)
     if len(sys.argv) >= 4:

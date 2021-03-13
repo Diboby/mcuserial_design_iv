@@ -66,7 +66,7 @@ def message_constructor(mcu_reg_number, mcu_num_seq, mcu_function_number, data, 
         list_size = 2
     data_size = 0
     if data is not None:
-        data_size = len(data)
+        data_size = len(data)*4
 
     mcu_packetsize = 4 + list_size + data_size
     mcu_fused_seq_func = mcu_num_seq << 4 | mcu_function_number
@@ -78,6 +78,9 @@ def message_constructor(mcu_reg_number, mcu_num_seq, mcu_function_number, data, 
     if data is not None:
         for i in range(len(data)):
             send_msg.append(data[i])
+            send_msg.append(0x00)
+            send_msg.append(0x00)
+            send_msg.append(0x00)
     crc = CRC16_Compute(send_msg, len(send_msg))
 
     packet = bytearray()
@@ -89,10 +92,14 @@ def message_constructor(mcu_reg_number, mcu_num_seq, mcu_function_number, data, 
         packet.append(list_offset)
         packet.append(list_count)
     if data is not None:
+        data = int(str(bytearray(data)).encode('hex'), 16)
         taille = int(math.ceil((float(len(hex(data))) - 2) / 2))            
         mask = 0xFF
         liste = []
         for i in range(taille):
+            liste.append(0x00)
+            liste.append(0x00)
+            liste.append(0x00)
             liste.append((data & mask) >> i * 8)
             mask = mask << 8
         for i in range(len(liste) - 1, -1, -1):

@@ -3,6 +3,13 @@
 #number_of_outputs = 3
 #number_of_fuses = 3
 
+# TODO MAXIMUM NUMBER OF ELEMENT IN REQUEST OF LIST IS 10
+# TODO WHEN WRITING DATA, MINIMUM IS ALWAYS 4 BYTES, BECAUSE REGISTERS (TO VALIDATE NOW)
+# TODO ADD TIMEOUT
+# TODO FINISH PARSER
+# TODO DO UT
+# TODO LOGIC OF SENDING/ACK/NACK
+
 read_function_number = 0x1
 write_function_number = 0x2
 read_list_function_number = 0x3
@@ -69,14 +76,14 @@ def read_output():
 
 
 def read_fuse_isokay_state():
-    mcu_function_number = write_list_function_number
+    mcu_function_number = read_list_function_number
     mcu_reg_number = fuse_isokay_reg_number
     index_start_list = fuse_index_start_list
     can_send_data = False
     return mcu_function_number, mcu_reg_number, index_start_list, can_send_data
     
 def read_fuse_issurcourant_state():
-    mcu_function_number = write_list_function_number
+    mcu_function_number = read_list_function_number
     mcu_reg_number = fuse_issurcharge_reg_number
     index_start_list = fuse_index_start_list
     can_send_data = False

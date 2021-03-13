@@ -3,9 +3,9 @@ from time import sleep
 import multiprocessing
 import sys
 import math
-from mcuros_msgs import McuToRosMsg
-from mcuserial_python import SerialClient
-from mcuserial_msgs.msg import TopicInfo, dataTemplate
+#from mcuros_msgs import McuToRosMsg
+#from mcuserial_python import SerialClient
+#from mcuserial_msgs.msg import TopicInfo, dataTemplate
 
 def buildMessage():
     message = dataTemplate()
