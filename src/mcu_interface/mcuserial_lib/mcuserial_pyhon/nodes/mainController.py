@@ -53,143 +53,141 @@ def CRC16_Compute(data, size):
         crc = (((crc << 8) & 0xFFFF) ^ crcTable1021[((crc >> 8) ^ (data[i])) & 0xFF])
 
     return crc
+       
 
+def message_constructor(mcu_reg_number, mcu_num_seq, mcu_function_number, data, list_offset, list_count, can_send_data):
+    if not can_send_data:
+        data = None
+    
+    mcu_header = 0x77
 
-class abstraction_layer:
+    list_size = 0
+    if list_offset is not None:
+        list_size = 2
+    data_size = 0
+    if data is not None:
+        data_size = len(data)
 
-    def __init__(self):
-        pass        
+    mcu_packetsize = 4 + list_size + data_size
+    mcu_fused_seq_func = mcu_num_seq << 4 | mcu_function_number
 
-    def message_constructor(self, mcu_reg_number, mcu_num_seq, mcu_function_number, data, list_offset, list_count, can_send_data):
-        if not can_send_data:
-            data = None
-        
-        mcu_header = 0x77
+    send_msg = [mcu_header, mcu_packetsize, mcu_fused_seq_func, mcu_reg_number]
+    if list_offset is not None:
+        send_msg.append(list_offset)
+        send_msg.append(list_count)
+    if data is not None:
+        for i in range(len(data)):
+            send_msg.append(data[i])
+    crc = CRC16_Compute(send_msg, len(send_msg))
 
-        list_size = 0
-        if list_offset is not None:
-            list_size = 2
-        data_size = 0
-        if data is not None:
-            data_size = len(data)
+    packet = bytearray()
+    packet.append(mcu_header)
+    packet.append(mcu_packetsize)
+    packet.append(mcu_fused_seq_func)
+    packet.append(mcu_reg_number)
+    if list_offset is not None and list_count is not None:
+        packet.append(list_offset)
+        packet.append(list_count)
+    if data is not None:
+        taille = int(math.ceil((float(len(hex(data))) - 2) / 2))            
+        mask = 0xFF
+        liste = []
+        for i in range(taille):
+            liste.append((data & mask) >> i * 8)
+            mask = mask << 8
+        for i in range(len(liste) - 1, -1, -1):
+            packet.append(liste[i])
+    packet.append(crc >> 8)
+    packet.append(crc & 0xFF)
 
-        mcu_packetsize = 4 + list_size + data_size
-        mcu_fused_seq_func = mcu_num_seq << 4 | mcu_function_number
-
-        send_msg = [mcu_header, mcu_packetsize, mcu_fused_seq_func, mcu_reg_number]
-        if list_offset is not None:
-            send_msg.append(list_offset)
-            send_msg.append(list_count)
-        if data is not None:
-            for i in range(len(data)):
-                send_msg.append(data[i])
-        crc = CRC16_Compute(send_msg, len(send_msg))
-
-        packet = bytearray()
-        packet.append(mcu_header)
-        packet.append(mcu_packetsize)
-        packet.append(mcu_fused_seq_func)
-        packet.append(mcu_reg_number)
-        if list_offset is not None and list_count is not None:
-            packet.append(list_offset)
-            packet.append(list_count)
-        if data is not None:
-            taille = int(math.ceil((float(len(hex(data))) - 2) / 2))            
-            mask = 0xFF
-            liste = []
-            for i in range(taille):
-                liste.append((data & mask) >> i * 8)
-                mask = mask << 8
-            for i in range(len(liste) - 1, -1, -1):
-                packet.append(liste[i])
-        packet.append(crc >> 8)
-        packet.append(crc & 0xFF)
-
-        return packet
+    return packet
 
     
-    # Entry point to abstraction layer, utility is the command number to be sent to MCU (ex : read temperature)
-    # arg_associated_data is the parameters of the command, contained in an array. [[ids of devices], [command data]]
-    # Ex : command, write output state of device 0 and 3, so that 0 is opened and 3 is closed [[0 3], [1 0]] .
-    # Ex : command is to read temperature, arg_associated_data needs to be [].
-    def entry_point_to_main_controller(self, utility, mcu_num_seq, arg_associated_data=[]):
+# Entry point to abstraction layer, utility is the command number to be sent to MCU (ex : read temperature)
+# arg_associated_data is the parameters of the command, contained in an array. [[ids of devices], [command data]]
+# Ex : command, write output state of device 0 and 3, so that 0 is opened and 3 is closed [[0 3], [1 0]] .
+# Ex : command is to read temperature, arg_associated_data needs to be [].
+def entry_point_to_main_controller(utility, mcu_num_seq, arg_associated_data=[]):
 
-        mcu_response = []
-        try:
-            if type(utility) is not int:
-                raise INPUT_WRONG_FORMAT
-            mcu_function_number, mcu_reg_number, index_start_list, can_send_data = rmt.find_utility_params[utility]()
-            device_ids = None
-            command_data = None
-            if arg_associated_data is not None:
-                if len(arg_associated_data) == 2:
-                    device_ids = arg_associated_data[0]
-                    command_data = arg_associated_data[1]
-                elif len(arg_associated_data) == 0:
-                    pass
-                else:
-                    raise INPUT_WRONG_FORMAT
-
-            list_offset = None
-            list_count = None
-            if (mcu_function_number is rmt.read_list_function_number) or (
-                    mcu_function_number is rmt.write_list_function_number):
-
-                if device_ids is None or not device_ids:
-                    raise INPUT_WRONG_FORMAT
-                if can_send_data and (command_data is None or not command_data or len(device_ids) != len(command_data)):
-                    raise INPUT_WRONG_FORMAT
-
-                # Determines if index are continuous or not, to send one or multiple messages
-                device_ids.sort()
-                idx_segments = []
-                for i in range(len(device_ids) - 1):
-                    if (device_ids[i + 1] - device_ids[i]) != 1:
-                        idx_segments.append(i + 1)
-
-                # If index are continuous, send one message, containing all of them
-                if not idx_segments:
-                    list_offset = device_ids[0] + index_start_list
-                    list_count = len(device_ids)
-                    mcu_response.append(self.message_constructor(mcu_reg_number,
-                                                          mcu_function_number,
-                                                          command_data, list_offset, list_count, can_send_data))
-                else:
-                    idx_segments.insert(0, 0)
-                    idx_segments.append(len(device_ids) - 1)
-
-                    for i in range(len(idx_segments) - 1):
-
-                        device_ids_i = device_ids[idx_segments[i]:idx_segments[i + 1]]
-                        command_data_i = command_data[idx_segments[i]:idx_segments[i + 1]]
-
-                        if idx_segments[i] == idx_segments[i + 1]:
-                            device_ids_i = device_ids[idx_segments[i]]
-                            command_data_i = [command_data[idx_segments[i]]]
-                            list_offset = device_ids_i + index_start_list
-                            list_count = 1
-                        else:
-                            list_offset = device_ids_i[0] + index_start_list
-                            list_count = len(device_ids_i)
-
-                        mcu_response_i = self.message_constructor(mcu_reg_number,
-                                                                mcu_function_number,
-                                                                command_data_i, list_offset, list_count, can_send_data)
-                        mcu_response.append(mcu_response_i)
-
+    mcu_response = []
+    try:
+        if type(utility) is not int:
+            raise INPUT_WRONG_FORMAT
+        mcu_function_number, mcu_reg_number, index_start_list, can_send_data = rmt.find_utility_params[utility]()
+        device_ids = None
+        command_data = None
+        if arg_associated_data is not None:
+            if len(arg_associated_data) == 2:
+                device_ids = arg_associated_data[0]
+                command_data = arg_associated_data[1]
+            elif len(arg_associated_data) == 0:
+                pass
             else:
-                mcu_response.append(self.message_constructor(mcu_reg_number,
-                                                      mcu_function_number,
-                                                      command_data, list_offset, list_count, can_send_data))
+                raise INPUT_WRONG_FORMAT
 
-        except ID_ATTRIBUTION_FAILED:
-            print("Too many requests at once. System is out of message ID's. Retry later.")
-        except INPUT_WRONG_FORMAT:
-            print(
-                "Input to function entry_point_to_main_controller has the wrong format. Try again (Utility is int and "
-                "arg_associated_data is a list of two lists)")
+        list_offset = None
+        list_count = None
+        if (mcu_function_number is rmt.read_list_function_number) or (
+                mcu_function_number is rmt.write_list_function_number):
 
-        return mcu_response
+            if device_ids is None or not device_ids:
+                raise INPUT_WRONG_FORMAT
+            if can_send_data and (command_data is None or not command_data or len(device_ids) != len(command_data)):
+                raise INPUT_WRONG_FORMAT
+
+            # Determines if index are continuous or not, to send one or multiple messages
+            device_ids.sort()
+            idx_segments = []
+            for i in range(len(device_ids) - 1):
+                if (device_ids[i + 1] - device_ids[i]) != 1:
+                    idx_segments.append(i + 1)
+
+            # If index are continuous, send one message, containing all of them
+            if not idx_segments:
+                list_offset = device_ids[0] + index_start_list
+                list_count = len(device_ids)
+                mcu_response.append(message_constructor(mcu_reg_number,
+                                                        mcu_num_seq,
+                                                        mcu_function_number,
+                                                        command_data, list_offset, list_count, can_send_data))
+            else:
+                idx_segments.insert(0, 0)
+                idx_segments.append(len(device_ids) - 1)
+
+                for i in range(len(idx_segments) - 1):
+
+                    device_ids_i = device_ids[idx_segments[i]:idx_segments[i + 1]]
+                    command_data_i = command_data[idx_segments[i]:idx_segments[i + 1]]
+
+                    if idx_segments[i] == idx_segments[i + 1]:
+                        device_ids_i = device_ids[idx_segments[i]]
+                        command_data_i = [command_data[idx_segments[i]]]
+                        list_offset = device_ids_i + index_start_list
+                        list_count = 1
+                    else:
+                        list_offset = device_ids_i[0] + index_start_list
+                        list_count = len(device_ids_i)
+
+                    mcu_response_i = message_constructor(mcu_reg_number,
+                                                            mcu_num_seq,
+                                                            mcu_function_number,
+                                                            command_data_i, list_offset, list_count, can_send_data)
+                    mcu_response.append(mcu_response_i)
+
+        else:
+            mcu_response.append(message_constructor(mcu_reg_number,
+                                                    mcu_num_seq,
+                                                    mcu_function_number,
+                                                    command_data, list_offset, list_count, can_send_data))
+
+    except ID_ATTRIBUTION_FAILED:
+        print("Too many requests at once. System is out of message ID's. Retry later.")
+    except INPUT_WRONG_FORMAT:
+        print(
+            "Input to function entry_point_to_main_controller has the wrong format. Try again (Utility is int and "
+            "arg_associated_data is a list of two lists)")
+
+    return mcu_response
 
 """
 abs = abstraction_layer()
@@ -213,4 +211,5 @@ test = abs.entry_point_to_main_controller(4, [[0, 1, 3, 5], [1, 1, 1, 1]])
 test = abs.entry_point_to_main_controller(4, [[0, 1, 3, 5], [1, 1, 1, 1]])
 test = abs.entry_point_to_main_controller(4, [[0, 1, 3, 5], [1, 1, 1, 1]])
 print(test)
+
 """

@@ -15,6 +15,7 @@ add_message_files(FILES
 add_service_files(FILES
   RequestParam.srv
   multiple_call_test.srv
+  alim_serial_com_srv.srv
 )
 
 generate_messages()

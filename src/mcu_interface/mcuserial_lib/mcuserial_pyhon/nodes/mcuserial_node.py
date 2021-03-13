@@ -9,7 +9,7 @@ import multiprocessing
 
 from ToBeRemoved import *
 from mainController import *
-from mcuserial_msgs.srv import RequestParam
+from mcuserial_msgs.srv import alim_serial_com_srv, RequestParam
 
 from mcuserial_python import SerialClient
 from serial import SerialException
@@ -21,11 +21,19 @@ noeud_reception_queue = Queue.Queue()
 next_seq_num = 0
 seq_num_in_use = set()
 
-
 def noeud_service_callback(req):
     curr_id = message_sequence_attributer(next_seq_num, seq_num_in_use)
-    data = abstraction_layer.entry_point_to_main_controller(req.utility, curr_id, [req.device_ids, req.command_data])
-    noeud_write_queue.put(data)
+    utility = req.utility
+    device_ids = list(req.device_ids)
+    command_data = list(req.command_data)
+    data = entry_point_to_main_controller(utility, curr_id, [device_ids, command_data])
+
+    for element in data:
+        noeud_write_queue.put(element)
+
+    while noeud_reception_queue.empty():
+        pass
+
 
     # TODO send command
     # TODO wait for ack
@@ -69,12 +77,12 @@ def message_sequence_attributer(next_seq_num, seq_num_in_use):
 
     return attributed_num
 
-# alimentation serial communication service
-serial_service = rospy.Service("alim_serial_com", RequestParam, noeud_service_callback)
-
 if __name__ == "__main__":
     rospy.init_node("mcuserial_node")
     rospy.loginfo("ROS <--> MCU Serial Python Node")
+
+    # alimentation serial communication service
+    serial_service = rospy.Service("alim_serial_com", alim_serial_com_srv, noeud_service_callback)
 
     port_name = rospy.get_param('~port', '/dev/ttyUSB0')
     baud = int(rospy.get_param('~baud', '9600'))
@@ -98,6 +106,11 @@ if __name__ == "__main__":
             noeud_send_msg_thread.start()
 
             mcu_serial_interface.run()
+
+            while not rospy.is_shutdown():
+                pass
+
+            noeud_send_msg_thread.join()
 
 
         except KeyboardInterrupt:

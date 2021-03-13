@@ -75,6 +75,7 @@ class SerialClient(object):
         self.writeQueue_lock = threading.RLock()
         self.write_queue = Queue.Queue()
         self.write_thread = None
+        self.read_thread = None
 
         self.lastsync = rospy.Time(0)
         self.lastsync_lost = rospy.Time(0)
@@ -152,20 +153,7 @@ class SerialClient(object):
         except Exception as e:
             raise IOError("Serial Port read failure: %s" % e)
 
-    def run(self):
-        """ Forward recieved messages to appropriate publisher. """
-
-        # Perso
-        while not rospy.is_shutdown() :
-            self.processWriteQueue()
-            
-
-        # Launch write thread.
-        if self.write_thread is None:
-            self.write_thread = threading.Thread(target=self.processWriteQueue)
-            self.write_thread.daemon = True
-            self.write_thread.start()
-
+    def handle_data_reception(self):
         # Handle reading.
         data = ''
         read_step = None
@@ -261,7 +249,28 @@ class SerialClient(object):
                     self.port.flushOutput()
                 self.requestTopics()
         self.txStopRequest()
-        self.write_thread.join()
+
+    def run(self):
+        """ Forward recieved messages to appropriate publisher. """
+
+        # Perso
+        #while not rospy.is_shutdown() :            
+            #self.processWriteQueue()
+            
+
+        # Launch write thread.
+        if self.write_thread is None:
+            self.write_thread = threading.Thread(target=self.processWriteQueue)
+            self.write_thread.daemon = True
+            self.write_thread.start()
+        
+        if self.read_thread is None:
+            self.read_thread = threading.Thread(target=self.handle_data_reception)
+            self.read_thread.daemon = True
+            self.read_thread.start()
+
+        
+        
 
     def send(self, msg):
         """
