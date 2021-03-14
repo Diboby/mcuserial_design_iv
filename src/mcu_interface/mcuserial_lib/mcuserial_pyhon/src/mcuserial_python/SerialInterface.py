@@ -180,6 +180,9 @@ class SerialClient(object):
         read_step = None
         result = bytearray()
         while self.write_thread.is_alive() and not rospy.is_shutdown():
+
+            if self.can_received_data == 0:
+                continue
             
             # This try-block is here because we make multiple calls to read(). Any one of them can throw
             # an IOError if there's a serial problem or timeout. In that scenario, a single handler at the
@@ -223,6 +226,7 @@ class SerialClient(object):
 
                 with self.read_lock:
                     self.read_queue.put(msg_bytes)
+                    self.can_received_data = 0
 
             except IOError as exc:
                 rospy.logwarn('Last read step: %s' % read_step)
@@ -298,6 +302,7 @@ class SerialClient(object):
                             self._write(data)                        
                         else:
                             rospy.logerr("Trying to write invalid data type: %s" % type(data))
+                        self.can_received_data = 1
                         break
                     except SerialTimeoutException as exc:
                         rospy.logerr('Write timeout: %s' % exc)
