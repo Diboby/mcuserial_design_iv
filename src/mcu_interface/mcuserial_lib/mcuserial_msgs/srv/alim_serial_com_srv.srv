@@ -4,6 +4,6 @@ int32[] command_data
 
 ---
 
-float32 floats
+float32[] floats
 bool is_error
 int32 error_code

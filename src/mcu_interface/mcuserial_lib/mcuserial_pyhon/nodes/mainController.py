@@ -37,11 +37,6 @@ crcTable1021 = [
     0x6E17, 0x7E36, 0x4E55, 0x5E74, 0x2E93, 0x3EB2, 0x0ED1, 0x1EF0
 ]
 
-
-class ID_ATTRIBUTION_FAILED(Exception):
-    pass
-
-
 class INPUT_WRONG_FORMAT(Exception):
     pass
 
@@ -187,36 +182,9 @@ def entry_point_to_main_controller(utility, mcu_num_seq, arg_associated_data=[])
                                                     mcu_function_number,
                                                     command_data, list_offset, list_count, can_send_data))
 
-    except ID_ATTRIBUTION_FAILED:
-        print("Too many requests at once. System is out of message ID's. Retry later.")
     except INPUT_WRONG_FORMAT:
         print(
             "Input to function entry_point_to_main_controller has the wrong format. Try again (Utility is int and "
             "arg_associated_data is a list of two lists)")
 
     return mcu_response
-
-"""
-abs = abstraction_layer()
-
-test = abs.entry_point_to_main_controller(4, [[0, 1, 3, 5], [1, 1, 1, 1]])
-test = abs.entry_point_to_main_controller(4, [[0, 1, 3, 5], [1, 1, 1, 1]])
-test = abs.entry_point_to_main_controller(4, [[0, 1, 3, 5], [1, 1, 1, 1]])
-test = abs.entry_point_to_main_controller(4, [[0, 1, 3, 5], [1, 1, 1, 1]])
-test = abs.entry_point_to_main_controller(4, [[0, 1, 3, 5], [1, 1, 1, 1]])
-test = abs.entry_point_to_main_controller(4, [[0, 1, 3, 5], [1, 1, 1, 1]])
-test = abs.entry_point_to_main_controller(4, [[0, 1, 3, 5], [1, 1, 1, 1]])
-test = abs.entry_point_to_main_controller(4, [[0, 1, 3, 5], [1, 1, 1, 1]])
-test = abs.entry_point_to_main_controller(4, [[0, 1, 3, 5], [1, 1, 1, 1]])
-test = abs.entry_point_to_main_controller(4, [[0, 1, 3, 5], [1, 1, 1, 1]])
-test = abs.entry_point_to_main_controller(4, [[0, 1, 3, 5], [1, 1, 1, 1]])
-test = abs.entry_point_to_main_controller(4, [[0, 1, 3, 5], [1, 1, 1, 1]])
-test = abs.entry_point_to_main_controller(4, [[0, 1, 3, 5], [1, 1, 1, 1]])
-test = abs.entry_point_to_main_controller(4, [[0, 1, 3, 5], [1, 1, 1, 1]])
-test = abs.entry_point_to_main_controller(4, [[0, 1, 3, 5], [1, 1, 1, 1]])
-test = abs.entry_point_to_main_controller(4, [[0, 1, 3, 5], [1, 1, 1, 1]])
-test = abs.entry_point_to_main_controller(4, [[0, 1, 3, 5], [1, 1, 1, 1]])
-test = abs.entry_point_to_main_controller(4, [[0, 1, 3, 5], [1, 1, 1, 1]])
-print(test)
-
-"""
