@@ -25,6 +25,7 @@ node_reception_queue = Queue.Queue()
 
 next_seq_num = 0
 seq_num_in_use = set()
+seq_num_lock = threading.RLock()
 
 def parse_correct_data(msg):
 
@@ -72,13 +73,43 @@ def print_hexstr(inputdd, monko):
     print(string)
 
 
-def send_and_acquire_data(curr_id, utility, data, iteration_retry):
-    data_out = [] # TODO COMPLETE OUTPUT TO CLIENT
-    is_error = 1
-    error_code = 0 # TODO comerr_regNotFound = 0x1, comerr_illegalAccess = 0x2, comerr_badFunction = 0x3, comerr_dataMissing = 0x4,
+def extract_data_and_convert(utility, data_out):
+    data_out_params = []
+    if utility == 4 or utility == 5 or utility == 6 or utility == 7: # if command was about a list, we remove from data offset and count bytes
+        data_out_params.append(data_out[0])
+        data_out_params.append(data_out[1])
+        data_out = data_out[2:]
+    
+    data_out_segmented_in_chunks = []
+    for i in range(0, len(data_out)-3, 4): # separates data into chunks of 4 bytes
+        data_out_segmented_in_chunks.append([data_out[i], data_out[i+1], data_out[i+2], data_out[i+3]])
+    
+    
+    data_out_segmented_in_chunks_endian = []
+    for chunk in data_out_segmented_in_chunks:
+        data_out_temp = []
+        for i in range(len(chunk) - 1, -1, -1): # convert from little endian to big endian
+            data_out_temp.append(chunk[i])
+        outnum = 0
+        for i in range(0, len(data_out_temp)): # concatenate bytes to form list of floats
+            outnum = outnum | data_out_temp[i] << 8*(len(data_out_temp)-1-i)
+        data_out_segmented_in_chunks_endian.append(outnum)
+    data_out = data_out_segmented_in_chunks_endian
 
-    print_hexstr(data, 'sending ')
-    noeud_write_queue.put((curr_id, data)) # TODO VERIFY MULTIPLE COMMANDS WITH SAME ID
+    return data_out
+
+
+def send_and_acquire_data(curr_id, utility, data, iteration_retry):
+    data_out = []
+    is_error = 0
+    error_code = 0 # TODO comerr_regNotFound = 0x1, comerr_illegalAccess = 0x2, comerr_badFunction = 0x3, comerr_dataMissing = 0x4, tooManyRetries = 0x5
+
+    if not rospy.is_shutdown() and iteration_retry > 0:
+        print_hexstr(data, 'sending ')
+        noeud_write_queue.put((curr_id, data)) # TODO VERIFY MULTIPLE COMMANDS WITH SAME ID
+    else:
+        is_error = 1
+        error_code = 0x5
 
     msg_bytes = ''
     while not rospy.is_shutdown() and iteration_retry > 0:
@@ -87,65 +118,60 @@ def send_and_acquire_data(curr_id, utility, data, iteration_retry):
         else:
             with read_node_Queue_lock:
                 (idd, msg_bytes) = node_reception_queue.get()
-                print_hexstr(msg_bytes, 'received ')
-                is_correct, seq_num, is_ack, is_nack, data_out = parse_correct_data(msg_bytes) 
+            print_hexstr(msg_bytes, 'received ')
+            is_correct, seq_num, is_ack, is_nack, data_out = parse_correct_data(msg_bytes) 
 
-                if seq_num != curr_id or idd != curr_id: # if data retrieved isn't for us, we put it back in the queue
-                    node_reception_queue.put(msg_bytes)
-                    time.sleep(0.01)
-                    continue
+            if seq_num != curr_id or idd != curr_id: # if data retrieved isn't for us, we put it back in the queue
+                node_reception_queue.put(msg_bytes)
+                time.sleep(0.01)
+                continue
+            else:
+                if is_correct == 0 or is_nack == 1 or (is_ack == 0 and is_nack == 0): # if problem, try again
+                    if is_nack == 1 and is_correct == 1:
+                        nack_code = extract_data_and_convert(utility, data_out)
+                        #TODO INPUT CERTAIN BEHAVIOR FOR NACK CODE
+                    data_out, is_error, error_code = send_and_acquire_data(curr_id, utility, data, iteration_retry-1) 
+                    break 
                 else:
-                    if is_correct == 0 or is_nack == 1 or (is_ack == 0 and is_nack == 0): # if problem, try again
-                        return send_and_acquire_data(data, iteration_retry-1) 
-                    else:
-                        data_out_params = []
-                        if utility == 4 or utility == 5 or utility == 6 or utility == 7: # if command was about a list, we remove from data offset and count bytes
-                            data_out_params.append(data_out[0])
-                            data_out_params.append(data_out[1])
-                            data_out = data_out[2:]
-                        
-                        data_out_segmented_in_chunks = []
-                        for i in range(0, len(data_out)-3, 4): # separates data into chunks of 4 bytes
-                            data_out_segmented_in_chunks.append([data_out[i], data_out[i+1], data_out[i+2], data_out[i+3]])
-                        
-                        
-                        data_out_segmented_in_chunks_endian = []
-                        for chunk in data_out_segmented_in_chunks:
-                            data_out_temp = []
-                            for i in range(len(chunk) - 1, -1, -1): # convert from little endian to big endian
-                                data_out_temp.append(chunk[i])
-                            outnum = 0
-                            for i in range(0, len(data_out_temp)): # concatenate bytes to form list of floats
-                                outnum = outnum | data_out_temp[i] << 8*(len(data_out_temp)-1-i)
-                            data_out_segmented_in_chunks_endian.append(outnum)
-                        data_out = data_out_segmented_in_chunks_endian
+                    data_out = extract_data_and_convert(utility, data_out)
 
                 break
 
-    is_error = 0
     return data_out, is_error, error_code
 
 
 def noeud_service_callback(req):
-    curr_id = message_sequence_attributer(next_seq_num, seq_num_in_use)
+    with seq_num_lock:
+        curr_id = message_sequence_attributer(next_seq_num, seq_num_in_use)
     utility = req.utility
     device_ids = list(req.device_ids)
     command_data = list(req.command_data)
-    data = entry_point_to_main_controller(utility, curr_id, [device_ids, command_data])
 
-    
     data_out = []
-    is_error = 0
-    error_code = -1
-    for element in data:
-        data_out_elem, is_error_elem, error_code_elem = send_and_acquire_data(curr_id, utility, element, 3) # TODO COMPLETE THE RECEPTION OF DATA WITH OUTPUT TO CLIENT
-        for dat in data_out_elem:
-            data_out.append(dat)
+    is_error = 1
+    error_code = -1 # ERROR LINKED TO FORMAT OF INPUT. CODE ISN'T ACCEPTING THE INPUTS AND THROWS IT RIGHT BACK TO USER.
 
-    
+    try:
+        data = entry_point_to_main_controller(utility, curr_id, [device_ids, command_data])
 
+        for element in data:
+            data_out_elem, is_error_elem, error_code_elem = send_and_acquire_data(curr_id, utility, element, 3)
+            if error_code == -1:
+                is_error = is_error_elem
+                error_code = error_code_elem
+            else:
+                if is_error == 0:
+                    is_error = is_error_elem
+                    error_code = error_code_elem
+
+            for dat in data_out_elem:
+                data_out.append(dat)
+
+    except Exception:
+        return data_out, is_error, error_code
    
-    seq_num_in_use.remove(curr_id)  # When finished, ID removed
+    with seq_num_lock:
+        seq_num_in_use.remove(curr_id)  # When finished, ID removed
     return data_out, is_error, error_code
 
 
@@ -204,18 +230,12 @@ if __name__ == "__main__":
     while not rospy.is_shutdown():
         rospy.loginfo("Connecting to %s at %d baud" % (port_name, baud))
         try:
-            mcu_serial_interface = SerialClient(port_name, baud, 10)
+            mcu_serial_interface = SerialClient(port_name, baud, 1)
 
             thread_event = threading.Event()
             noeud_send_msg_thread = threading.Thread(target=sendMessage, args=(thread_event, mcu_serial_interface))
             noeud_send_msg_thread.daemon = True
             noeud_send_msg_thread.start()
-
-            #noeud_send_msg_thread = threading.Thread(target=receiveMessage, args=(thread_event, mcu_serial_interface))
-            #noeud_send_msg_thread.daemon = True
-            #noeud_send_msg_thread.start()
-
-            #mcu_serial_interface.run()
 
             while not rospy.is_shutdown():
                 pass

@@ -112,79 +112,76 @@ def message_constructor(mcu_reg_number, mcu_num_seq, mcu_function_number, data, 
 def entry_point_to_main_controller(utility, mcu_num_seq, arg_associated_data=[]):
 
     mcu_response = []
-    try:
-        if type(utility) is not int:
-            raise INPUT_WRONG_FORMAT
-        mcu_function_number, mcu_reg_number, index_start_list, can_send_data = rmt.find_utility_params[utility]()
-        device_ids = None
-        command_data = None
-        if arg_associated_data is not None:
-            if len(arg_associated_data) == 2:
-                device_ids = arg_associated_data[0]
-                command_data = arg_associated_data[1]
-            elif len(arg_associated_data) == 0:
-                pass
-            else:
-                raise INPUT_WRONG_FORMAT
-
-        list_offset = None
-        list_count = None
-        if (mcu_function_number is rmt.read_list_function_number) or (
-                mcu_function_number is rmt.write_list_function_number):
-
-            if device_ids is None or not device_ids:
-                raise INPUT_WRONG_FORMAT
-            if can_send_data and (command_data is None or not command_data or len(device_ids) != len(command_data)):
-                raise INPUT_WRONG_FORMAT
-
-            # Determines if index are continuous or not, to send one or multiple messages
-            device_ids.sort()
-            idx_segments = []
-            for i in range(len(device_ids) - 1):
-                if (device_ids[i + 1] - device_ids[i]) != 1:
-                    idx_segments.append(i + 1)
-
-            # If index are continuous, send one message, containing all of them
-            if not idx_segments:
-                list_offset = device_ids[0] + index_start_list
-                list_count = len(device_ids)
-                mcu_response.append(message_constructor(mcu_reg_number,
-                                                        mcu_num_seq,
-                                                        mcu_function_number,
-                                                        command_data, list_offset, list_count, can_send_data))
-            else:
-                idx_segments.insert(0, 0)
-                idx_segments.append(len(device_ids) - 1)
-
-                for i in range(len(idx_segments) - 1):
-
-                    device_ids_i = device_ids[idx_segments[i]:idx_segments[i + 1]]
-                    command_data_i = command_data[idx_segments[i]:idx_segments[i + 1]]
-
-                    if idx_segments[i] == idx_segments[i + 1]:
-                        device_ids_i = device_ids[idx_segments[i]]
-                        command_data_i = [command_data[idx_segments[i]]]
-                        list_offset = device_ids_i + index_start_list
-                        list_count = 1
-                    else:
-                        list_offset = device_ids_i[0] + index_start_list
-                        list_count = len(device_ids_i)
-
-                    mcu_response_i = message_constructor(mcu_reg_number,
-                                                            mcu_num_seq,
-                                                            mcu_function_number,
-                                                            command_data_i, list_offset, list_count, can_send_data)
-                    mcu_response.append(mcu_response_i)
-
+    
+    if type(utility) is not int:
+        raise INPUT_WRONG_FORMAT
+    mcu_function_number, mcu_reg_number, index_start_list, can_send_data = rmt.find_utility_params[utility]()
+    device_ids = None
+    command_data = None
+    if arg_associated_data is not None:
+        if len(arg_associated_data) == 2:
+            device_ids = arg_associated_data[0]
+            command_data = arg_associated_data[1]
+        elif len(arg_associated_data) == 0:
+            pass
         else:
+            raise INPUT_WRONG_FORMAT
+
+    list_offset = None
+    list_count = None
+    if (mcu_function_number is rmt.read_list_function_number) or (
+            mcu_function_number is rmt.write_list_function_number):
+
+        if device_ids is None or not device_ids:
+            raise INPUT_WRONG_FORMAT
+        if can_send_data and (command_data is None or not command_data or len(device_ids) != len(command_data)):
+            raise INPUT_WRONG_FORMAT
+
+        # Determines if index are continuous or not, to send one or multiple messages
+        device_ids.sort()
+        idx_segments = []
+        last_append = 0
+        for i in range(len(device_ids) - 1):
+            if (device_ids[i + 1] - device_ids[i]) != 1 or i - last_append >= 9:
+                idx_segments.append(i + 1)
+                last_append = i + 1
+
+        # If index are continuous, send one message, containing all of them
+        if not idx_segments:
+            list_offset = device_ids[0] + index_start_list
+            list_count = len(device_ids)
             mcu_response.append(message_constructor(mcu_reg_number,
                                                     mcu_num_seq,
                                                     mcu_function_number,
                                                     command_data, list_offset, list_count, can_send_data))
+        else:
+            idx_segments.insert(0, 0)
+            idx_segments.append(len(device_ids))
 
-    except INPUT_WRONG_FORMAT:
-        print(
-            "Input to function entry_point_to_main_controller has the wrong format. Try again (Utility is int and "
-            "arg_associated_data is a list of two lists)")
+            for i in range(len(idx_segments) - 1):
+
+                device_ids_i = device_ids[idx_segments[i]:idx_segments[i + 1]]
+                command_data_i = command_data[idx_segments[i]:idx_segments[i + 1]]
+
+                if idx_segments[i] == idx_segments[i + 1]:
+                    device_ids_i = device_ids[idx_segments[i]]
+                    command_data_i = [command_data[idx_segments[i]]]
+                    list_offset = device_ids_i + index_start_list
+                    list_count = 1
+                else:
+                    list_offset = device_ids_i[0] + index_start_list
+                    list_count = len(device_ids_i)
+
+                mcu_response_i = message_constructor(mcu_reg_number,
+                                                        mcu_num_seq,
+                                                        mcu_function_number,
+                                                        command_data_i, list_offset, list_count, can_send_data)
+                mcu_response.append(mcu_response_i)
+
+    else:
+        mcu_response.append(message_constructor(mcu_reg_number,
+                                                mcu_num_seq,
+                                                mcu_function_number,
+                                                command_data, list_offset, list_count, can_send_data))
 
     return mcu_response
