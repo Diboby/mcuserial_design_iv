@@ -74,6 +74,9 @@ def send_and_acquire_data(curr_id, utility, data, iteration_retry):
 
                 break
 
+    if utility in rmt.function_no_return:
+        time.sleep(2)
+
     return data_out, is_error, error_code
 
 
@@ -165,7 +168,7 @@ if __name__ == "__main__":
     # alimentation serial communication service
     serial_service = rospy.Service("alim_serial_com", alim_serial_com_srv, noeud_service_callback)
 
-    port_name = rospy.get_param('~port', '/dev/ttyACM0')
+    port_name = rospy.get_param('~port', '/dev/ttyUSB0')
     baud = int(rospy.get_param('~baud', '115200'))
 
     sys.argv = rospy.myargv(argv=sys.argv)

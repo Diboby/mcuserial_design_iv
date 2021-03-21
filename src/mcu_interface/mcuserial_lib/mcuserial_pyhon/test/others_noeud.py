@@ -61,7 +61,12 @@ if __name__ == "__main__":
         print("Fuse is okay values : ", read_fuse_isokay_state)
         read_boot_time = alim_serial_service(7, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [])
         print("Boot time values : ", read_fuse_isokay_state)
-        read_uptime = alim_serial_service(14, [], [])
+        reset = alim_serial_service(13, [], [])
+        print("Reset value : ", reset)
+        time.sleep(1)
+        temperature = alim_serial_service(0, [], [])
+        print("Temperature value : ", temperature)
+        read_uptime = alim_serial_service(14, [0], [1])
         print("Boot uptime tick values : ", read_uptime)
         
         print("\nTesting write communication : (if no prints, then test successful)")

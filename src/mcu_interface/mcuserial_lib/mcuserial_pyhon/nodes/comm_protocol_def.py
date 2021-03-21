@@ -135,10 +135,10 @@ def read_uptime_tick():
     mcu_function_number = read_function_number
     mcu_reg_number = uptime_reg
     index_start_list = None
-    can_send_data = True
+    can_send_data = False
     return mcu_function_number, mcu_reg_number, index_start_list, can_send_data
 
-
+# TODO FUNCTION OUTPUT TO SHUT ALL, TO OPEN ALL, TO RESET ALL
 find_utility_params = {0: read_temp,                #RETURN FLOAT
                        1: read_tension_alim,        #RETURN FLOAT
                        2: read_courant_alim,        #RETURN FLOAT
