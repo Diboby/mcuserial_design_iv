@@ -1,6 +1,7 @@
 import serial
 import math
 import comm_protocol_def as rmt
+import struct
 
 crcTable1021 = [
     0x0000, 0x1021, 0x2042, 0x3063, 0x4084, 0x50A5, 0x60C6, 0x70E7,
@@ -40,7 +41,6 @@ crcTable1021 = [
 class INPUT_WRONG_FORMAT(Exception):
     pass
 
-
 # data is uint8 array/iterable
 def CRC16_Compute(data, size):
     crc = 0xFFFF
@@ -48,7 +48,81 @@ def CRC16_Compute(data, size):
         crc = (((crc << 8) & 0xFFFF) ^ crcTable1021[((crc >> 8) ^ (data[i])) & 0xFF])
 
     return crc
+
+def print_hexstr(inputdd, monko):
+    string = monko
+    for b in inputdd:
+        string = string + str(hex(b)) + ' '
+    print(string)
+
+def parse_correct_data(msg):
+
+    byte_list = []
+    for byte in msg:
+        byte_list.append(byte)
+
+    if(len(byte_list) < 6):
+        return 0, 0, 0, 0, None
+
+    packet_size = int(byte_list[1])
+    computed_crc = CRC16_Compute(byte_list, packet_size)
+    given_crc = int(str(msg[len(msg)-2:len(msg)]).encode('hex'), 16)
+
+    valid_crc = (given_crc == computed_crc)
+
+    seq_num = (byte_list[2] & 0xF0) >> 4
+    function_num = byte_list[2] & 0xF
+
+    valid_function = (function_num==0xB or function_num==0xC)
+
+    is_correct = valid_function and valid_crc
+
+    if function_num == 0xB:
+        is_ack = 1
+    else:
+        is_ack = 0
+    
+    if function_num == 0xC:
+        is_nack = 1
+    else:
+        is_nack = 0
+    
+    try:
+        data_out = byte_list[4:-2]
+    except Exception:
+        data_out = None
+
+    return is_correct, seq_num, is_ack, is_nack, data_out
        
+       
+def extract_data_and_convert(utility, data_out):
+    data_out_params = []
+    if utility in rmt.function_are_list: # if command was about a list, we remove from data offset and count bytes
+        data_out_params.append(data_out[0])
+        data_out_params.append(data_out[1])
+        data_out = data_out[2:]
+    
+    data_out_segmented_in_chunks = []
+    for i in range(0, len(data_out)-3, 4): # separates data into chunks of 4 bytes
+        data_out_segmented_in_chunks.append([data_out[i], data_out[i+1], data_out[i+2], data_out[i+3]])
+    
+    
+    data_out_segmented_in_chunks_endian = []
+    for chunk in data_out_segmented_in_chunks:
+        data_out_temp = bytearray()
+        for i in range(len(chunk)): # convert from little endian to big endian
+            data_out_temp.append(chunk[i])
+        if utility in rmt.function_return_float:
+            outnum = struct.unpack("f", data_out_temp)[0]
+        elif utility in rmt.function_return_int:
+            outnum = struct.unpack("I", data_out_temp)[0]
+        else:
+            outnum = 0
+        data_out_segmented_in_chunks_endian.append(outnum)
+    data_out = data_out_segmented_in_chunks_endian
+
+    return data_out
+
 
 def message_constructor(mcu_reg_number, mcu_num_seq, mcu_function_number, data, list_offset, list_count, can_send_data):
     if not can_send_data:
@@ -70,12 +144,15 @@ def message_constructor(mcu_reg_number, mcu_num_seq, mcu_function_number, data, 
     if list_offset is not None:
         send_msg.append(list_offset)
         send_msg.append(list_count)
+    data_list = []
     if data is not None:
-        for i in range(len(data)):
-            send_msg.append(data[i])
-            send_msg.append(0x00)
-            send_msg.append(0x00)
-            send_msg.append(0x00)
+        for donnee in data:
+            if donnee < 0:
+                raise INPUT_WRONG_FORMAT
+            byte_donnee = bytearray(struct.pack("I", donnee))
+            for i in range(len(byte_donnee)):
+                data_list.append(byte_donnee[i])
+                send_msg.append(byte_donnee[i])
     crc = CRC16_Compute(send_msg, len(send_msg))
 
     packet = bytearray()
@@ -87,18 +164,8 @@ def message_constructor(mcu_reg_number, mcu_num_seq, mcu_function_number, data, 
         packet.append(list_offset)
         packet.append(list_count)
     if data is not None:
-        data = int(str(bytearray(data)).encode('hex'), 16)
-        taille = int(math.ceil((float(len(hex(data))) - 2) / 2))            
-        mask = 0xFF
-        liste = []
-        for i in range(taille):
-            liste.append(0x00)
-            liste.append(0x00)
-            liste.append(0x00)
-            liste.append((data & mask) >> i * 8)
-            mask = mask << 8
-        for i in range(len(liste) - 1, -1, -1):
-            packet.append(liste[i])
+        for donnee in data_list:
+            packet.append(donnee)
     packet.append(crc >> 8)
     packet.append(crc & 0xFF)
 
@@ -113,7 +180,7 @@ def entry_point_to_main_controller(utility, mcu_num_seq, arg_associated_data=[])
 
     mcu_response = []
     
-    if type(utility) is not int:
+    if type(utility) is not int or utility not in rmt.function_possible:
         raise INPUT_WRONG_FORMAT
     mcu_function_number, mcu_reg_number, index_start_list, can_send_data = rmt.find_utility_params[utility]()
     device_ids = None
@@ -129,8 +196,8 @@ def entry_point_to_main_controller(utility, mcu_num_seq, arg_associated_data=[])
 
     list_offset = None
     list_count = None
-    if (mcu_function_number is rmt.read_list_function_number) or (
-            mcu_function_number is rmt.write_list_function_number):
+
+    if utility in rmt.function_are_list:
 
         if device_ids is None or not device_ids:
             raise INPUT_WRONG_FORMAT
@@ -142,7 +209,7 @@ def entry_point_to_main_controller(utility, mcu_num_seq, arg_associated_data=[])
         idx_segments = []
         last_append = 0
         for i in range(len(device_ids) - 1):
-            if (device_ids[i + 1] - device_ids[i]) != 1 or i - last_append >= 9:
+            if (device_ids[i + 1] - device_ids[i]) != 1 or i - last_append >= rmt.list_number_max_of_element_in_index_call-1:
                 idx_segments.append(i + 1)
                 last_append = i + 1
 
