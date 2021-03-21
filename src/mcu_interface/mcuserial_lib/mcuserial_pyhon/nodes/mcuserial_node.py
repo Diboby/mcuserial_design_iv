@@ -33,18 +33,18 @@ class ID_ATTRIBUTION_FAILED(Exception):
 
 def send_and_acquire_data(curr_id, utility, data, iteration_retry):
     data_out = []
-    is_error = 0 # TODO WHAT ARE THE RIGHT ERROR_CODE? LIKE WRONG CRC OR BAD FORMAT OR ELSE?
+    is_error = 0
     error_code = 0 # TODO comerr_regNotFound = 0x1, comerr_illegalAccess = 0x2, comerr_badFunction = 0x3, comerr_dataMissing = 0x4, tooManyRetries = 0x5, idattributionfailed = 0x6
 
     if not rospy.is_shutdown() and iteration_retry > 0:
         print_hexstr(data, 'sending ')
-        noeud_write_queue.put((curr_id, data))
+        noeud_write_queue.put((curr_id, data, utility not in rmt.function_no_return))
     else:
         is_error = 1
         error_code = 0x5
 
     msg_bytes = ''
-    while not rospy.is_shutdown() and iteration_retry > 0 :
+    while not rospy.is_shutdown() and iteration_retry > 0 and utility not in rmt.function_no_return:
         if node_reception_queue.empty():
             time.sleep(0.01)
         else:
@@ -59,7 +59,7 @@ def send_and_acquire_data(curr_id, utility, data, iteration_retry):
                 continue
             else:
                 if is_correct == 0 or is_nack == 1 or (is_ack == 0 and is_nack == 0): # if problem, try again
-                    if is_nack == 1 and is_correct == 1:
+                    if is_nack == 1 and is_correct == 1: # TODO WHEN BAD CRC, COULD BE CAUSED BY NOISE, SO WAIT FOR TIMEOUT, THEN TRY AGAIN, NOT DIRECTLY
                         nack_code = extract_data_and_convert(utility, data_out) # TODO TEST NACK WITH NON EXISTENT FUNCTION CALL
                         if not nack_code:
                             nack_code = 5
@@ -68,9 +68,6 @@ def send_and_acquire_data(curr_id, utility, data, iteration_retry):
                     data_out, is_error, error_code = send_and_acquire_data(curr_id, utility, data, iteration_retry-1) 
                     if is_error == 1 and is_nack == 1 and is_correct == 1:
                         error_code = nack_code
-                    if utility in rmt.function_no_return:
-                        is_error = False
-                        error_code = 0
                     break 
                 else:
                     data_out = extract_data_and_convert(utility, data_out)
@@ -133,14 +130,15 @@ def sendMessage(thread_event, serialClient):
             time.sleep(0.01)
         else:
             with write_node_Queue_lock:
-                (idd, data) = noeud_write_queue.get()
+                (idd, data, can_receive) = noeud_write_queue.get()
 
             serialClient.send(data)
-            msg_bytes = serialClient.receive()
-            with read_node_Queue_lock:
-                node_reception_queue.put((idd, msg_bytes))
+            if can_receive:
+                msg_bytes = serialClient.receive()
+                with read_node_Queue_lock:
+                    node_reception_queue.put((idd, msg_bytes))
 
-def message_sequence_attributer(next_seq_num, seq_num_in_use):
+def message_sequence_attributer(next_seq_num, seq_num_in_use): # TODO CLEAR NUMS WHEN ALL FULL, BECAUSE TIMEOUT
     attributed_num = next_seq_num
 
     if set([attributed_num]).issubset(seq_num_in_use):
@@ -167,7 +165,7 @@ if __name__ == "__main__":
     # alimentation serial communication service
     serial_service = rospy.Service("alim_serial_com", alim_serial_com_srv, noeud_service_callback)
 
-    port_name = rospy.get_param('~port', '/dev/ttyUSB1')
+    port_name = rospy.get_param('~port', '/dev/ttyACM0')
     baud = int(rospy.get_param('~baud', '115200'))
 
     sys.argv = rospy.myargv(argv=sys.argv)

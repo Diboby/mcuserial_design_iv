@@ -20,17 +20,11 @@ if __name__ == "__main__":
 
     try:
         alim_serial_service = rospy.ServiceProxy('alim_serial_com', alim_serial_com_srv)
-        while not rospy.is_shutdown():
-            # TODO UT
-            # TODO WHEN WRITING DATA, MINIMUM IS ALWAYS 4 BYTES, BECAUSE REGISTERS (TO VALIDATE NOW)
-            '''print('Enter function number')
-            x = int(input())
-            print('Enter device id')
-            y = int(input())
-            print('Enter command data')
-            z = int(input())'''
-            resp = alim_serial_service(5, [200, 201], [1, 1])
-            print(resp)
-            sleep(3)
+        timee = 0
+        if not rospy.is_shutdown():
+            bef = time.time()
+            resp = alim_serial_service(3, [], [])
+            aft = time.time()
+            print(aft - bef, resp)
     except rospy.ServiceException as e:
         print("Service call failed: %s" %e)
