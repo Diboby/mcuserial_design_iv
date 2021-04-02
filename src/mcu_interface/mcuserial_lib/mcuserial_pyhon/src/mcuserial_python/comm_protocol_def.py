@@ -1,3 +1,12 @@
+serial_device_port = '/dev/ttyUSB0'
+serial_device_baud = '115200'
+serial_device_read_timeout = 0.2 # in seconds (careful when changing this one, too small and logic will be terminated if byte takes too long to be received. too high, and the logic will stall in case of no communication, preventing other requests from getting through)
+serial_comm_logic_end_timeout = 2.0 # in seconds (time to consider packet is lost and we should retry sending same request)
+list_number_max_of_element_in_index_call = 10
+number_max_of_ids = 16
+number_of_retrys = 3
+service_print_debug_info = False # if code should print debug info
+
 password_for_admin_fct_mcu = 0x000074AB
 
 read_function_number = 0x1
@@ -23,10 +32,6 @@ uptime_reg = 0x74 # READ int (time in tick as int)
 fuse_index_start_list = 0x00
 output_index_start_list = 0x00
 boot_time_index_start_list = 0x00
-
-list_number_max_of_element_in_index_call = 10
-number_max_of_ids = 16
-number_of_retrys = 3
 
 def read_temp():
     mcu_function_number = read_function_number
@@ -156,9 +161,9 @@ find_utility_params = {0: read_temp,                #RETURN FLOAT
                        14: read_uptime_tick         #RETURN UINT32
                        }
 
-function_possible = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14]
-function_are_list = [4,5,6,7,8,11,12]
-function_needs_password = [9,10,13]
-function_return_float = [0,1,2,3]
-function_return_int = [4,5,6,7,8,9,10,11,12,14]
-function_no_return = [13]
+function_possible = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14] # all of the possible functions
+function_are_list = [4,5,6,7,8,11,12] # functions that operates on list in the MCU
+function_needs_password = [9,10,13] # functions that need the password to execute in the MCU (sends the password as data)
+function_return_float = [0,1,2,3] # functions that returns float to the computer (from the MCU)
+function_return_int = [4,5,6,7,8,9,10,11,12,14] # functions that returns uint32 to the computer (from the MCU)
+function_no_return = [13] # functions that doesn't give any response from the MCU

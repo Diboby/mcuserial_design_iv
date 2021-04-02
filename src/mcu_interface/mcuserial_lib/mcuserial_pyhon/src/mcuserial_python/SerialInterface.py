@@ -64,11 +64,12 @@ class SerialClient(object):
             class_._instance = object.__new__(class_, *args, **kwargs)
         return class_._instance
 
-    def __init__(self, port='/dev/ttyUSB0', baud=9600, timeout=5.0):
+    def __init__(self, port='/dev/ttyUSB0', baud=115200, timeout_recv=0.2, timeout_logic_end=2.0):
         """ Initialize node, connect to bus, attempt to negotiate topics. """
 
         self.header = 0x77
-        self.timeout = timeout
+        self.timeout_logic_end = timeout_logic_end
+        self.timeout_recv = timeout_recv
 
         if port is None:
             # Pas de port specifiee
@@ -80,7 +81,7 @@ class SerialClient(object):
             # ouvrir un port
             while not rospy.is_shutdown():
                 try:
-                    self.port = Serial(port, baud, timeout=self.timeout, write_timeout=self.timeout)                        
+                    self.port = Serial(port, baud, timeout=self.timeout_recv, write_timeout=self.timeout_recv)                        
                     break
                 except SerialException as e:
                     rospy.logerr("Error opening serial: %s", e)
@@ -147,7 +148,7 @@ class SerialClient(object):
                     return out_array
 
                 if (ord(flag) != self.header): #IF RECEIVED NOISE, CONTINUE UNTIL TIMEDOUT
-                    if (time.time() - read_start) > self.timeout:
+                    if (time.time() - read_start) > self.timeout_logic_end:
                         out_array = bytearray()
                         out_array.extend(flag)
                         return out_array
@@ -191,7 +192,6 @@ class SerialClient(object):
         """
         Main loop for the thread that processes outgoing data to write to the serial port.
         """
-        rospy.loginfo("Sending message from ROS to MCU")
 
         try:
             if isinstance(data, bytes):

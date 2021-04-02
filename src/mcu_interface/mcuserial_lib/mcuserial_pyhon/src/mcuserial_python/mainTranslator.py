@@ -1,8 +1,7 @@
-import serial
-import math
 import comm_protocol_def as rmt
 import struct
 
+# CRC16 table with poly 1021
 crcTable1021 = [
     0x0000, 0x1021, 0x2042, 0x3063, 0x4084, 0x50A5, 0x60C6, 0x70E7,
     0x8108, 0x9129, 0xA14A, 0xB16B, 0xC18C, 0xD1AD, 0xE1CE, 0xF1EF,
@@ -49,19 +48,28 @@ def CRC16_Compute(data, size):
 
     return crc
 
-def print_hexstr(inputdd, monko):
-    string = monko
-    for b in inputdd:
+# for debug purposes, data is the bytearray to be translated to hex bytes, and printing them as such
+def print_hexstr(data, first_string):
+    string = first_string
+    for b in data:
         string = string + str(hex(b)) + ' '
     print(string)
 
+
+# Parser to determine if msg is okay or not.
+# msg, the data to be parsed (bytearray)
+# returns is_correct, if the data has a valid CRC and has a valid function number
+#         seq_num, the number of sequence embedded in the msg
+#         is_ack, if the function number was an ack
+#         is_nack, if the function number was an nack
+#         data_out, data embedded in the message (includes the list_offset and list_count parameters of the message)
 def parse_correct_data(msg):
 
     byte_list = []
     for byte in msg:
         byte_list.append(byte)
 
-    if(len(byte_list) < 6):
+    if(len(byte_list) < 6): # messages should always be at least 6 bytes long
         return 0, 0, 0, 0, None
 
     packet_size = int(byte_list[1])
@@ -94,7 +102,10 @@ def parse_correct_data(msg):
 
     return is_correct, seq_num, is_ack, is_nack, data_out
        
-       
+
+# Extracts the data from the utility function (used after parsing has determine message is correct)
+# utility, function number received
+# data_out, data received, includes list_offset and list_count if applicable
 def extract_data_and_convert(utility, data_out):
     data_out_params = []
     if utility in rmt.function_are_list: # if command was about a list, we remove from data offset and count bytes
@@ -124,6 +135,15 @@ def extract_data_and_convert(utility, data_out):
     return data_out
 
 
+# Creates a valid bytearray representing the message to be sent
+# mcu_reg_num, the register number of the MCU to be contacted
+# mcu_num_seq, the id or sequence number of this request
+# mcu_function_number, the function number to be sent (read, write, read_list, write_list, etc.)
+# data, the data that accompagnies the request (as list of uint32)
+# list_offset, if list, should be the offset. None otherwise.
+# list_count, if list, should be the number of reg entries to be written (1 reg entry = 4 bytes). None otherwise.
+# can_send_data, bool if the utility function can send data or not. (if user entered data for a function that doesn't send any)
+# return packet, bytearray containing the message for the comm protocol in use
 def message_constructor(mcu_reg_number, mcu_num_seq, mcu_function_number, data, list_offset, list_count, can_send_data):
     if not can_send_data:
         data = None
@@ -176,6 +196,8 @@ def message_constructor(mcu_reg_number, mcu_num_seq, mcu_function_number, data, 
 # arg_associated_data is the parameters of the command, contained in an array. [[ids of devices], [command data]]
 # Ex : command, write output state of device 0 and 3, so that 0 is opened and 3 is closed [[0 3], [1 0]] .
 # Ex : command is to read temperature, arg_associated_data needs to be [].
+# mcu_num_seq is the sequence number of request
+# returns list of bytearray that are the messages to be sent
 def entry_point_to_main_controller(utility, mcu_num_seq, arg_associated_data=[]):
 
     mcu_response = []
@@ -213,7 +235,7 @@ def entry_point_to_main_controller(utility, mcu_num_seq, arg_associated_data=[])
                 idx_segments.append(i + 1)
                 last_append = i + 1
 
-        # If index are continuous, send one message, containing all of them
+        # If index are continuous, contruct one message, containing all of them
         if not idx_segments:
             list_offset = device_ids[0] + index_start_list
             list_count = len(device_ids)
@@ -221,7 +243,7 @@ def entry_point_to_main_controller(utility, mcu_num_seq, arg_associated_data=[])
                                                     mcu_num_seq,
                                                     mcu_function_number,
                                                     command_data, list_offset, list_count, can_send_data))
-        else:
+        else: # Otherwise, construct all messages for continous indexes
             idx_segments.insert(0, 0)
             idx_segments.append(len(device_ids))
 
@@ -230,7 +252,7 @@ def entry_point_to_main_controller(utility, mcu_num_seq, arg_associated_data=[])
                 device_ids_i = device_ids[idx_segments[i]:idx_segments[i + 1]]
                 command_data_i = command_data[idx_segments[i]:idx_segments[i + 1]]
 
-                if idx_segments[i] == idx_segments[i + 1]:
+                if idx_segments[i] == idx_segments[i + 1]: # if the current continous index is only len()=1
                     device_ids_i = device_ids[idx_segments[i]]
                     command_data_i = [command_data[idx_segments[i]]]
                     list_offset = device_ids_i + index_start_list
