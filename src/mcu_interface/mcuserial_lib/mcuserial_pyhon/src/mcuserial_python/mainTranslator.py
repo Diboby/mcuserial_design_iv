@@ -70,7 +70,7 @@ def parse_correct_data(msg):
         byte_list.append(byte)
 
     if(len(byte_list) < 6): # messages should always be at least 6 bytes long
-        return 0, 0, 0, 0, None
+        return 0, 0, 0, 0, []
 
     packet_size = int(byte_list[1])
     computed_crc = CRC16_Compute(byte_list, packet_size)
@@ -98,7 +98,7 @@ def parse_correct_data(msg):
     try:
         data_out = byte_list[4:-2]
     except Exception:
-        data_out = None
+        data_out = []
 
     return is_correct, seq_num, is_ack, is_nack, data_out
        
@@ -106,14 +106,24 @@ def parse_correct_data(msg):
 # Extracts the data from the utility function (used after parsing has determine message is correct)
 # utility, function number received
 # data_out, data received, includes list_offset and list_count if applicable
+# returns if data is ok or corrupted
+# and data converted to right format
 def extract_data_and_convert(utility, data_out):
     data_out_params = []
+
+    if len(data_out) < 2:
+        return False, []
+
     if utility in rmt.function_are_list: # if command was about a list, we remove from data offset and count bytes
         data_out_params.append(data_out[0])
         data_out_params.append(data_out[1])
         data_out = data_out[2:]
     
+    if len(data_out)%4 != 0:
+        return False, []
+
     data_out_segmented_in_chunks = []
+    
     for i in range(0, len(data_out)-3, 4): # separates data into chunks of 4 bytes
         data_out_segmented_in_chunks.append([data_out[i], data_out[i+1], data_out[i+2], data_out[i+3]])
     
@@ -132,7 +142,7 @@ def extract_data_and_convert(utility, data_out):
         data_out_segmented_in_chunks_endian.append(outnum)
     data_out = data_out_segmented_in_chunks_endian
 
-    return data_out
+    return True, data_out
 
 
 # Creates a valid bytearray representing the message to be sent

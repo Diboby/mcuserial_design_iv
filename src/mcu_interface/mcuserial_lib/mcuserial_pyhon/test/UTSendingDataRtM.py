@@ -1,3 +1,5 @@
+# UT to test MCU ability to communicate
+
 from mcuserial_python import SerialClient
 from mcuserial_python import mainTranslator as mt
 import time
@@ -12,16 +14,84 @@ def send_my_dat(data):
         recv.append(msg_bytes)
     return recv
 
-# TODO WHEN WRITING DATA, MINIMUM IS ALWAYS 4 BYTES, BECAUSE REGISTERS (TO VALIDATE NOW)
 #comerr_regNotFound = 0x1, comerr_illegalAccess = 0x2, comerr_badFunction = 0x3, comerr_dataMissing = 0x4
 
 
-#mt.message_constructor(mcu_reg_number, mcu_num_seq, mcu_function_number, data, list_offset, list_count, can_send_data)
+# WHEN WRITING DATA, MINIMUM IS ALWAYS 4 BYTES, BECAUSE REGISTERS (TO VALIDATE NOW)
+def test_mcu_min_bytes():
+    test_success = True
 
+    packet = bytearray()
+    packet.append(0x77)
+    packet.append(7)
+    packet.append(0x04)
+    packet.append(0x50)
+    packet.append(0x0)
+    packet.append(0x1)
+    packet.append(0x1)
+    packet.append(0x7B)
+    packet.append(0x87)
+    recv = send_my_dat([packet])
+    is_correct, seq_num, is_ack, is_nack, data_out = mt.parse_correct_data(recv[0])
+    _, nack_code = mt.extract_data_and_convert(0x4, data_out)
+    test_success = test_success and is_correct == 1 and seq_num == 0 and is_ack == False and is_nack == True and nack_code[0] == 0x4 # TODO MCU DOESN'T RESPONSE CORRECTLY, NACK CODE IS 1 BYTE INSTEAD OF 4
+    if test_success:
+        print("[SUCCESS] : MCU handles bad data formatting (1 byte instead of 4)")
+    else:
+        print("[ERROR] : MCU doesn't handle bad data formatting (1 byte instead of 4)")
+    return test_success
 
-#mt.message_constructor(0x40, 0, 0x1, [], None, None, False)
+# TEST BAD CRC
+def test_bad_crc():
+    test_success = True
+    packet = bytearray()
+    packet.append(0x77)
+    packet.append(0x0a)
+    packet.append(0x04)
+    packet.append(0x50)
+    packet.append(0x0)
+    packet.append(0x1)
+    packet.append(0x1)
+    packet.append(0x0)
+    packet.append(0x0)
+    packet.append(0x0)
+    packet.append(0xf4)
+    packet.append(0xc6)
 
-# TODO TEST DATA MISSING
+    recv = send_my_dat([packet])
+    is_correct, seq_num, is_ack, is_nack, data_out = mt.parse_correct_data(recv[0])
+    test_success = test_success and is_correct == 0
+    if test_success:
+        print("[SUCCESS] : MCU handles bad crc from request")
+    else:
+        print("[ERROR] : MCU doesn't handle bad crc from request")
+    return test_success
+
+# TEST DATA MISSING
+def test_mcu_data_missing():
+    test_success = True
+    data = [mt.message_constructor(0x10, 0, 0x1, [1], None, None, True)]
+    recv = send_my_dat(data)
+    is_correct, seq_num, is_ack, is_nack, data_out = mt.parse_correct_data(recv[0])
+    _, nack_code = mt.extract_data_and_convert(0x9, data_out)
+    test_success = test_success and is_correct == 1 and seq_num == 0 and is_ack == False and is_nack == True and nack_code[0] == 0x4
+
+    data = [mt.message_constructor(0x50, 0, 0x4, [], 0x0, 0x1, True)]
+    recv = send_my_dat(data)
+    is_correct, seq_num, is_ack, is_nack, data_out = mt.parse_correct_data(recv[0])
+    _, nack_code = mt.extract_data_and_convert(0x4, data_out)
+    test_success = test_success and is_correct == 1 and seq_num == 0 and is_ack == False and is_nack == True and nack_code[0] == 0x4 # TODO SUPPOSED TO RECEIVE NACK, BECAUSE MISSING WRITING DATA
+
+    data = [mt.message_constructor(0x50, 0, 0x4, [1], 0x0, 0x2, True)]
+    recv = send_my_dat(data)
+    is_correct, seq_num, is_ack, is_nack, data_out = mt.parse_correct_data(recv[0])
+    _, nack_code = mt.extract_data_and_convert(0x4, data_out)
+    test_success = test_success and is_correct == 1 and seq_num == 0 and is_ack == False and is_nack == True and nack_code[0] == 0x4 # TODO SUPPOSED TO RECEIVE NACK, BECAUSE MISSING WRITING DATA
+    if test_success:
+        print("[SUCCESS] : MCU handles missing data from request")
+    else:
+        print("[ERROR] : MCU doesn't handle missing data from request")
+    return test_success
 
 def test_mcu_fct_number():
     test_success = True
@@ -32,28 +102,28 @@ def test_mcu_fct_number():
     data = [mt.message_constructor(0x10, 0, 0x2, [1], None, None, True)]
     recv = send_my_dat(data)
     is_correct, seq_num, is_ack, is_nack, data_out = mt.parse_correct_data(recv[0])
-    nack_code = mt.extract_data_and_convert(0x9, data_out)
+    _, nack_code = mt.extract_data_and_convert(0x9, data_out)
     test_success = test_success and is_correct == 1 and seq_num == 0 and is_ack == False and is_nack == True and nack_code[0] == 0x2
     data = [mt.message_constructor(0x10, 0, 0x3, [], 0x0, 0x1, False)]
     recv = send_my_dat(data)
     is_correct, seq_num, is_ack, is_nack, data_out = mt.parse_correct_data(recv[0])
-    nack_code = mt.extract_data_and_convert(0x4, data_out)
+    _, nack_code = mt.extract_data_and_convert(0x4, data_out)
     test_success = test_success and is_correct == 1 and seq_num == 0 and is_ack == False and is_nack == True and nack_code[0] == 0x2
     data = [mt.message_constructor(0x10, 0, 0x4, [10], 0x0, 0x1, True)]
     recv = send_my_dat(data)
     is_correct, seq_num, is_ack, is_nack, data_out = mt.parse_correct_data(recv[0])
-    nack_code = mt.extract_data_and_convert(0x4, data_out)
+    _, nack_code = mt.extract_data_and_convert(0x4, data_out)
     test_success = test_success and is_correct == 1 and seq_num == 0 and is_ack == False and is_nack == True and nack_code[0] == 0x2
 
     data = [mt.message_constructor(0x30, 0, 0x1, [], None, None, False)]
     recv = send_my_dat(data)
     is_correct, seq_num, is_ack, is_nack, data_out = mt.parse_correct_data(recv[0])
-    nack_code = mt.extract_data_and_convert(0x9, data_out)
+    _, nack_code = mt.extract_data_and_convert(0x9, data_out)
     #test_success = test_success and is_correct == 1 and seq_num == 0 and is_ack == False and is_nack == True and nack_code[0] == 0x2 # TODO THIS ISN'T GOOD (READING A LIST REG WITH A SIMPLE REG READ COMMAND) GIVES NACK (REG NOT FOUND)
     data = [mt.message_constructor(0x30, 0, 0x2, [1], None, None, True)]
     recv = send_my_dat(data)
     is_correct, seq_num, is_ack, is_nack, data_out = mt.parse_correct_data(recv[0])
-    nack_code = mt.extract_data_and_convert(0x9, data_out)
+    _, nack_code = mt.extract_data_and_convert(0x9, data_out)
     test_success = test_success and is_correct == 1 and seq_num == 0 and is_ack == False and is_nack == True and nack_code[0] == 0x2
     data = [mt.message_constructor(0x30, 0, 0x3, [], 0x0, 0x1, False)]
     recv = send_my_dat(data)
@@ -62,18 +132,18 @@ def test_mcu_fct_number():
     data = [mt.message_constructor(0x30, 0, 0x4, [10], 0x0, 0x1, True)]
     recv = send_my_dat(data)
     is_correct, seq_num, is_ack, is_nack, data_out = mt.parse_correct_data(recv[0])
-    nack_code = mt.extract_data_and_convert(0x4, data_out)
+    _, nack_code = mt.extract_data_and_convert(0x4, data_out)
     test_success = test_success and is_correct == 1 and seq_num == 0 and is_ack == False and is_nack == True and nack_code[0] == 0x2
 
     data = [mt.message_constructor(0x50, 0, 0x1, [], None, None, False)]
     recv = send_my_dat(data)
     is_correct, seq_num, is_ack, is_nack, data_out = mt.parse_correct_data(recv[0])
-    nack_code = mt.extract_data_and_convert(0x9, data_out)
+    _, nack_code = mt.extract_data_and_convert(0x9, data_out)
     #test_success = test_success and is_correct == 1 and seq_num == 0 and is_ack == False and is_nack == True and nack_code[0] == 0x2 # TODO THIS ISN'T GOOD (READING A LIST REG WITH A SIMPLE REG READ COMMAND) GIVES NACK (REG NOT FOUND)
     data = [mt.message_constructor(0x50, 0, 0x2, [1], None, None, True)]
     recv = send_my_dat(data)
     is_correct, seq_num, is_ack, is_nack, data_out = mt.parse_correct_data(recv[0])
-    nack_code = mt.extract_data_and_convert(0x9, data_out)
+    _, nack_code = mt.extract_data_and_convert(0x9, data_out)
     #test_success = test_success and is_correct == 1 and seq_num == 0 and is_ack == False and is_nack == True and nack_code[0] == 0x2 # TODO THIS ISN'T GOOD (WRITING A LIST REG WITH A SIMPLE REG WRITE COMMAND) GIVES ACK
     data = [mt.message_constructor(0x50, 0, 0x3, [], 0x0, 0x1, False)]
     recv = send_my_dat(data)
@@ -87,7 +157,7 @@ def test_mcu_fct_number():
     data = [mt.message_constructor(0x70, 0, 0x1, [], None, None, False)]
     recv = send_my_dat(data)
     is_correct, seq_num, is_ack, is_nack, data_out = mt.parse_correct_data(recv[0])
-    nack_code = mt.extract_data_and_convert(0x9, data_out)
+    _, nack_code = mt.extract_data_and_convert(0x9, data_out)
     test_success = test_success and is_correct == 1 and seq_num == 0 and is_ack == False and is_nack == True and nack_code[0] == 0x2
     data = [mt.message_constructor(0x70, 0, 0x2, [mt.rmt.password_for_admin_fct_mcu], None, None, True)] # TODO PROBLEM, NEEDS SLEEP?
     recv = send_my_dat(data)
@@ -96,33 +166,33 @@ def test_mcu_fct_number():
     data = [mt.message_constructor(0x70, 0, 0x3, [], 0x0, 0x1, False)]
     recv = send_my_dat(data)
     is_correct, seq_num, is_ack, is_nack, data_out = mt.parse_correct_data(recv[0]) # TODO IM RECEIVING AN ACK WHEN FULL SPEED, AND NACK WHEN ADDED WITH SLEEP?
-    nack_code = mt.extract_data_and_convert(0x4, data_out)
+    _, nack_code = mt.extract_data_and_convert(0x4, data_out)
     test_success = test_success and is_correct == 1 and seq_num == 0 and is_ack == False and is_nack == True and nack_code[0] == 0x2
     data = [mt.message_constructor(0x70, 0, 0x4, [1], 0x0, 0x1, True)]
     recv = send_my_dat(data)
     is_correct, seq_num, is_ack, is_nack, data_out = mt.parse_correct_data(recv[0])
-    nack_code = mt.extract_data_and_convert(0x4, data_out)
+    _, nack_code = mt.extract_data_and_convert(0x4, data_out)
     test_success = test_success and is_correct == 1 and seq_num == 0 and is_ack == False and is_nack == True and nack_code[0] == 0x2
 
     data = [mt.message_constructor(0x10, 0, 0x5, [], None, None, False)]
     recv = send_my_dat(data)
     is_correct, seq_num, is_ack, is_nack, data_out = mt.parse_correct_data(recv[0])
-    nack_code = mt.extract_data_and_convert(0x9, data_out)
+    _, nack_code = mt.extract_data_and_convert(0x9, data_out)
     test_success = test_success and is_correct == 1 and seq_num == 0 and is_ack == False and is_nack == True and nack_code[0] == 0x3
     data = [mt.message_constructor(0x10, 0, 0xb, [], None, None, False)]
     recv = send_my_dat(data)
     is_correct, seq_num, is_ack, is_nack, data_out = mt.parse_correct_data(recv[0])
-    nack_code = mt.extract_data_and_convert(0x9, data_out)
+    _, nack_code = mt.extract_data_and_convert(0x9, data_out)
     test_success = test_success and is_correct == 1 and seq_num == 0 and is_ack == False and is_nack == True and nack_code[0] == 0x3
     data = [mt.message_constructor(0x10, 0, 0xc, [], None, None, False)]
     recv = send_my_dat(data)
     is_correct, seq_num, is_ack, is_nack, data_out = mt.parse_correct_data(recv[0])
-    nack_code = mt.extract_data_and_convert(0x9, data_out)
+    _, nack_code = mt.extract_data_and_convert(0x9, data_out)
     test_success = test_success and is_correct == 1 and seq_num == 0 and is_ack == False and is_nack == True and nack_code[0] == 0x3
     data = [mt.message_constructor(0x10, 0, 0xa, [], None, None, False)]
     recv = send_my_dat(data)
     is_correct, seq_num, is_ack, is_nack, data_out = mt.parse_correct_data(recv[0])
-    nack_code = mt.extract_data_and_convert(0x9, data_out)
+    _, nack_code = mt.extract_data_and_convert(0x9, data_out)
     test_success = test_success and is_correct == 1 and seq_num == 0 and is_ack == False and is_nack == True and nack_code[0] == 0x3
     if test_success:
         print("[SUCCESS] : MCU handles right and wrong function numbers")
@@ -171,12 +241,12 @@ def test_mcu_reg_number():
     data = [mt.message_constructor(0x35, 1, 0x1, [], None, None, False)]
     recv = send_my_dat(data)
     is_correct, seq_num, is_ack, is_nack, data_out = mt.parse_correct_data(recv[0])
-    nack_code = mt.extract_data_and_convert(0x9, data_out)
+    _, nack_code = mt.extract_data_and_convert(0x9, data_out)
     test_success = test_success and is_correct == 1 and seq_num == 1 and is_ack == False and is_nack == True and nack_code[0] == 0x1
     data = [mt.message_constructor(0x22, 2, 0x1, [], None, None, False)]
     recv = send_my_dat(data)
     is_correct, seq_num, is_ack, is_nack, data_out = mt.parse_correct_data(recv[0])
-    nack_code = mt.extract_data_and_convert(0x9, data_out)
+    _, nack_code = mt.extract_data_and_convert(0x9, data_out)
     test_success = test_success and is_correct == 1 and seq_num == 2 and is_ack == False and is_nack == True and nack_code[0] == 0x1
     if test_success:
         print("[SUCCESS] : MCU handles right and wrong register numbers")
@@ -235,13 +305,15 @@ def test_noise_on_line():
         print("[ERROR] : MCU doesn't handle correctly noise on line")
     return test_success
 
-
-number_of_total_fct = 4
+number_of_total_fct = 7
 number_of_fct_success = 0
 number_of_fct_success = number_of_fct_success + int(test_noise_on_line())
 number_of_fct_success = number_of_fct_success + int(test_mcu_num_seq())
 number_of_fct_success = number_of_fct_success + int(test_mcu_reg_number())
 number_of_fct_success = number_of_fct_success + int(test_mcu_fct_number())
+number_of_fct_success = number_of_fct_success + int(test_mcu_data_missing())
+number_of_fct_success = number_of_fct_success + int(test_bad_crc())
+number_of_fct_success = number_of_fct_success + int(test_mcu_min_bytes())
 
 print("\nIn summary:")
 print(str(number_of_fct_success) + " functions have succeeded out of " + str(number_of_total_fct) + " functions.")

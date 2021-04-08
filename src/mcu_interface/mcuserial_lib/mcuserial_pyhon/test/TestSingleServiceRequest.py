@@ -13,7 +13,7 @@ from mcuserial_msgs.msg import TopicInfo, dataTemplate
 
 
 if __name__ == "__main__":
-    rospy.init_node("mcuserial_node_test2")
+    rospy.init_node("mcuserial_node_test")
     rospy.loginfo("ROS <--> MCU Serial Python Node Test")
     rospy.wait_for_service('alim_serial_com')
     print("alim_serial_com service available")

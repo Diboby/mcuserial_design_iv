@@ -1,15 +1,7 @@
-import sys
+# UT to test service ability to handle requests and communicate with MCU, and give correct request answers back.
 import time
 import rospy
-import Queue
-import threading
-import multiprocessing
-
-from mcuserial_msgs.srv import alim_serial_com_srv, RequestParam
-
-from mcuserial_python import SerialClient
-from serial import SerialException
-from mcuserial_msgs.msg import TopicInfo, dataTemplate
+from mcuserial_msgs.srv import alim_serial_com_srv
 
 def check_equal_list(list1, list2):
     equals = isinstance(list1, list) and isinstance(list2, list) and (len(list1) == len(list2))
@@ -220,7 +212,7 @@ if __name__ == "__main__":
         print("Test completed, should have tried number_of_retrys retries and should print True 2 times.")
 
 
-        print("/nUT completed.")
+        print("\nUT completed.")
         print(str(number_of_success) + " functions have completed successfully.")
         print(str(number_of_errors) + " functions have failed.")
         print("Tests that have failed can be seen by searching for [ERROR] or FALSE")

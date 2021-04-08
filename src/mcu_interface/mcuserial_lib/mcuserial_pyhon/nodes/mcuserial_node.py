@@ -67,19 +67,16 @@ def send_and_acquire_data(curr_id, utility, data, iteration_retry):
                 time.sleep(0.01)
                 continue
             else:
-                if is_correct == 0 or is_nack == 1 or (is_ack == 0 and is_nack == 0): # if problem with the request, try again
+                data_ok, data_out = mt.extract_data_and_convert(utility, data_out)
+                if is_correct == 0 or is_nack == 1 or (is_ack == 0 and is_nack == 0) or not data_ok and not is_ack: # if problem with the request, try again
                     if is_nack == 1 and is_correct == 1: # we received a valid message, but there was a problem (nack)
-                        nack_code = mt.extract_data_and_convert(utility, data_out)
-                        if not nack_code:
+                        if not data_ok:
                             nack_code = 5
                         else:
-                            nack_code = nack_code[0]
+                            nack_code = data_out[0]
                     data_out, is_error, error_code = send_and_acquire_data(curr_id, utility, data, iteration_retry-1) # because there was a problem, we retry again the sending process
                     if is_error == 1 and is_nack == 1 and is_correct == 1: # if we still receive a problem (nack) after n retries, we only return the first nack code we encountered
                         error_code = nack_code
-                    break 
-                else:
-                    data_out = mt.extract_data_and_convert(utility, data_out)
 
                 break
 

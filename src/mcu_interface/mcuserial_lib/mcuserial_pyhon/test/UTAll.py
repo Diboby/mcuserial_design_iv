@@ -4,7 +4,7 @@ import threading
 def service_usage():
     os.system("python src/mcu_interface/mcuserial_lib/mcuserial_pyhon/test/UTServiceUsage.py")
 
-os.system("python src/mcu_interface/mcuserial_lib/mcuserial_pyhon/test/UTSendingData.py")
+os.system("python src/mcu_interface/mcuserial_lib/mcuserial_pyhon/test/UTSendingDataRtM.py")
 
 noeud_send_msg_thread = threading.Thread(target=service_usage, args=())
 noeud_send_msg_thread.daemon = True

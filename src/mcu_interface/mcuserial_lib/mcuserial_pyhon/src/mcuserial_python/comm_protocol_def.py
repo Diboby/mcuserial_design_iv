@@ -1,6 +1,6 @@
 serial_device_port = '/dev/ttyUSB0'
 serial_device_baud = '115200'
-serial_device_read_timeout = 0.2 # in seconds (careful when changing this one, too small and logic will be terminated if byte takes too long to be received. too high, and the logic will stall in case of no communication, preventing other requests from getting through)
+serial_device_read_timeout = 0.5 # in seconds (careful when changing this one, too small and logic will be terminated if byte takes too long to be received. too high, and the logic will stall in case of no communication, preventing other requests from getting through)
 serial_comm_logic_end_timeout = 2.0 # in seconds (time to consider packet is lost and we should retry sending same request)
 list_number_max_of_element_in_index_call = 10
 number_max_of_ids = 16
