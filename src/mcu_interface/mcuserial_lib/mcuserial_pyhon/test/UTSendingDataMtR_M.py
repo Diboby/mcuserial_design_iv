@@ -127,7 +127,7 @@ out = bytearray(b'w\x08\x0b\x50\x01\x00\x00\x00\x75\xa3')
 Client.write(out)
 
 
-# TODO TEST INEXISTING FUNCTION
+# TEST INEXISTING FUNCTION
 inn = Client.read(8)
 print_hexstr(inn)
 out = bytearray(b'w\x0a\x0a\x50\x00\x01\x01\x00\x00\x00\x6a\xd4')

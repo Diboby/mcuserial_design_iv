@@ -4,7 +4,7 @@ from mcuserial_python import SerialClient
 from mcuserial_python import mainTranslator as mt
 import time
 
-mcu_serial_interface = SerialClient('/dev/ttyUSB0', 115200, 0.2, 2.0)
+mcu_serial_interface = SerialClient('/dev/ttyUSB0', 115200, 0.2, 2.0) # 0.2 2.0
 
 def send_my_dat(data):
     recv = []
@@ -34,7 +34,7 @@ def test_mcu_min_bytes():
     recv = send_my_dat([packet])
     is_correct, seq_num, is_ack, is_nack, data_out = mt.parse_correct_data(recv[0])
     _, nack_code = mt.extract_data_and_convert(0x4, data_out)
-    test_success = test_success and is_correct == 1 and seq_num == 0 and is_ack == False and is_nack == True and nack_code[0] == 0x4 # TODO MCU DOESN'T RESPONSE CORRECTLY, NACK CODE IS 1 BYTE INSTEAD OF 4
+    test_success = test_success and is_correct == 1 and seq_num == 0 and is_ack == False and is_nack == True and nack_code[0] == 0x4
     if test_success:
         print("[SUCCESS] : MCU handles bad data formatting (1 byte instead of 4)")
     else:
@@ -80,13 +80,13 @@ def test_mcu_data_missing():
     recv = send_my_dat(data)
     is_correct, seq_num, is_ack, is_nack, data_out = mt.parse_correct_data(recv[0])
     _, nack_code = mt.extract_data_and_convert(0x4, data_out)
-    test_success = test_success and is_correct == 1 and seq_num == 0 and is_ack == False and is_nack == True and nack_code[0] == 0x4 # TODO SUPPOSED TO RECEIVE NACK, BECAUSE MISSING WRITING DATA
+    test_success = test_success and is_correct == 1 and seq_num == 0 and is_ack == False and is_nack == True and nack_code[0] == 0x4
 
     data = [mt.message_constructor(0x50, 0, 0x4, [1], 0x0, 0x2, True)]
     recv = send_my_dat(data)
     is_correct, seq_num, is_ack, is_nack, data_out = mt.parse_correct_data(recv[0])
     _, nack_code = mt.extract_data_and_convert(0x4, data_out)
-    test_success = test_success and is_correct == 1 and seq_num == 0 and is_ack == False and is_nack == True and nack_code[0] == 0x4 # TODO SUPPOSED TO RECEIVE NACK, BECAUSE MISSING WRITING DATA
+    test_success = test_success and is_correct == 1 and seq_num == 0 and is_ack == False and is_nack == True and nack_code[0] == 0x4
     if test_success:
         print("[SUCCESS] : MCU handles missing data from request")
     else:
@@ -118,8 +118,7 @@ def test_mcu_fct_number():
     data = [mt.message_constructor(0x30, 0, 0x1, [], None, None, False)]
     recv = send_my_dat(data)
     is_correct, seq_num, is_ack, is_nack, data_out = mt.parse_correct_data(recv[0])
-    _, nack_code = mt.extract_data_and_convert(0x9, data_out)
-    #test_success = test_success and is_correct == 1 and seq_num == 0 and is_ack == False and is_nack == True and nack_code[0] == 0x2 # TODO THIS ISN'T GOOD (READING A LIST REG WITH A SIMPLE REG READ COMMAND) GIVES NACK (REG NOT FOUND)
+    test_success = test_success and is_correct == 1 and seq_num == 0 and is_ack == True and is_nack == False
     data = [mt.message_constructor(0x30, 0, 0x2, [1], None, None, True)]
     recv = send_my_dat(data)
     is_correct, seq_num, is_ack, is_nack, data_out = mt.parse_correct_data(recv[0])
@@ -138,13 +137,11 @@ def test_mcu_fct_number():
     data = [mt.message_constructor(0x50, 0, 0x1, [], None, None, False)]
     recv = send_my_dat(data)
     is_correct, seq_num, is_ack, is_nack, data_out = mt.parse_correct_data(recv[0])
-    _, nack_code = mt.extract_data_and_convert(0x9, data_out)
-    #test_success = test_success and is_correct == 1 and seq_num == 0 and is_ack == False and is_nack == True and nack_code[0] == 0x2 # TODO THIS ISN'T GOOD (READING A LIST REG WITH A SIMPLE REG READ COMMAND) GIVES NACK (REG NOT FOUND)
+    test_success = test_success and is_correct == 1 and seq_num == 0 and is_ack == True and is_nack == False
     data = [mt.message_constructor(0x50, 0, 0x2, [1], None, None, True)]
     recv = send_my_dat(data)
     is_correct, seq_num, is_ack, is_nack, data_out = mt.parse_correct_data(recv[0])
-    _, nack_code = mt.extract_data_and_convert(0x9, data_out)
-    #test_success = test_success and is_correct == 1 and seq_num == 0 and is_ack == False and is_nack == True and nack_code[0] == 0x2 # TODO THIS ISN'T GOOD (WRITING A LIST REG WITH A SIMPLE REG WRITE COMMAND) GIVES ACK
+    test_success = test_success and is_correct == 1 and seq_num == 0 and is_ack == True and is_nack == False
     data = [mt.message_constructor(0x50, 0, 0x3, [], 0x0, 0x1, False)]
     recv = send_my_dat(data)
     is_correct, seq_num, is_ack, is_nack, data_out = mt.parse_correct_data(recv[0])
@@ -159,13 +156,13 @@ def test_mcu_fct_number():
     is_correct, seq_num, is_ack, is_nack, data_out = mt.parse_correct_data(recv[0])
     _, nack_code = mt.extract_data_and_convert(0x9, data_out)
     test_success = test_success and is_correct == 1 and seq_num == 0 and is_ack == False and is_nack == True and nack_code[0] == 0x2
-    data = [mt.message_constructor(0x70, 0, 0x2, [mt.rmt.password_for_admin_fct_mcu], None, None, True)] # TODO PROBLEM, NEEDS SLEEP?
+    data = [mt.message_constructor(0x70, 0, 0x2, [mt.rmt.password_for_admin_fct_mcu], None, None, True)]
     recv = send_my_dat(data)
     is_correct, seq_num, is_ack, is_nack, data_out = mt.parse_correct_data(recv[0])
     test_success = test_success and is_correct == 1 and seq_num == 0 and is_ack == True and is_nack == False
     data = [mt.message_constructor(0x70, 0, 0x3, [], 0x0, 0x1, False)]
     recv = send_my_dat(data)
-    is_correct, seq_num, is_ack, is_nack, data_out = mt.parse_correct_data(recv[0]) # TODO IM RECEIVING AN ACK WHEN FULL SPEED, AND NACK WHEN ADDED WITH SLEEP?
+    is_correct, seq_num, is_ack, is_nack, data_out = mt.parse_correct_data(recv[0])
     _, nack_code = mt.extract_data_and_convert(0x4, data_out)
     test_success = test_success and is_correct == 1 and seq_num == 0 and is_ack == False and is_nack == True and nack_code[0] == 0x2
     data = [mt.message_constructor(0x70, 0, 0x4, [1], 0x0, 0x1, True)]
