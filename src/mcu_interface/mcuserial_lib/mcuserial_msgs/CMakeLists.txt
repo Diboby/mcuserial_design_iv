@@ -9,7 +9,6 @@ add_message_files(FILES
 # Il faut rajouter les messages crees ici
   Log.msg
   TopicInfo.msg
-  dataTemplate.msg
 )
 
 add_service_files(FILES
